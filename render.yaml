@@ -5,10 +5,10 @@ services:
     plan: free
     rootDir: lux-auction-multiplayer-fixed
     region: singapore
-    buildCommand: npm install --no-audit --no-fund && npm run build
-    startCommand: npm start
+    buildCommand: yarn install --non-interactive && yarn build
+    startCommand: node server.js
     healthCheckPath: /api/health
     autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
-        value: 20.19.0
+        value: 24.14.1
