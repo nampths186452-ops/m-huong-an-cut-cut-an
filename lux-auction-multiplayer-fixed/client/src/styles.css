@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(185, 28, 28, 0.28), transparent 34%),
+    radial-gradient(circle at top right, rgba(234, 179, 8, 0.18), transparent 32%),
+    linear-gradient(135deg, #08111f 0%, #111827 45%, #220b14 100%);
+  color: #fff7ed;
+}
+
+button, input {
+  font: inherit;
+}
+
+.font-display {
+  font-family: Cinzel, Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+.glass {
+  background: rgba(13, 24, 42, 0.78);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+  backdrop-filter: blur(14px);
+}
+
+.btn-gold {
+  border-radius: 9999px;
+  border: 1px solid rgba(252, 211, 77, 0.75);
+  background: linear-gradient(135deg, #fff3bd, #d6a84f 52%, #8a5a12);
+  color: #111827;
+  padding: 0.9rem 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+  box-shadow: 0 14px 30px rgba(161, 98, 7, 0.28);
+}
+
+.btn-gold:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+
+.btn-gold:disabled,
+.btn-maroon:disabled,
+.btn-navy:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-maroon {
+  border-radius: 9999px;
+  border: 1px solid rgba(252, 165, 165, 0.25);
+  background: linear-gradient(135deg, #7f1d1d, #4c0519);
+  color: #fff7ed;
+  padding: 0.9rem 1.25rem;
+  font-weight: 800;
+  transition: transform 160ms ease, filter 160ms ease;
+}
+
+.btn-maroon:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.12);
+}
+
+.btn-navy {
+  border-radius: 9999px;
+  border: 1px solid rgba(147, 197, 253, 0.18);
+  background: linear-gradient(135deg, #1e3a8a, #111827);
+  color: #eff6ff;
+  padding: 0.9rem 1.25rem;
+  font-weight: 800;
+  transition: transform 160ms ease, filter 160ms ease;
+}
+
+.btn-navy:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.12);
+}
+
+.input-lux {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  background: rgba(2, 6, 23, 0.72);
+  color: #fff7ed;
+  padding: 0.9rem 1rem;
+  outline: none;
+}
+
+.input-lux:focus {
+  border-color: rgba(251, 191, 36, 0.8);
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.12);
+}
+
+.card {
+  border-radius: 1.5rem;
+  border: 1px solid rgba(251, 191, 36, 0.18);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.gift-box {
+  min-height: 160px;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(251, 191, 36, 0.36);
+  background:
+    linear-gradient(135deg, rgba(252, 211, 77, 0.18), rgba(127, 29, 29, 0.36)),
+    rgba(15, 23, 42, 0.88);
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.35), 0 16px 30px rgba(0,0,0,0.22);
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.gift-box:hover:not(:disabled) {
+  transform: translateY(-5px) rotate(-1deg);
+  filter: brightness(1.15);
+  box-shadow: 0 0 0 4px rgba(251,191,36,0.1), 0 24px 42px rgba(0,0,0,0.32);
+}
+
+.open-gift {
+  animation: openGift 620ms cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes openGift {
+  0% { transform: scale(0.92) rotate(-4deg); opacity: 0.1; }
+  55% { transform: scale(1.07) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.flash-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle, rgba(252, 211, 77, 0.4), rgba(127, 29, 29, 0.2), transparent 70%);
+  animation: flashFade 1.05s ease-out both;
+}
+
+.flash-card {
+  border-radius: 2rem;
+  border: 2px solid rgba(253, 224, 71, 0.9);
+  background: rgba(8, 13, 28, 0.86);
+  padding: 2rem 3rem;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(251,191,36,0.55);
+  animation: popBid 720ms cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes flashFade {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes popBid {
+  0% { transform: scale(0.65); }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, rgba(252,211,77,0.25), rgba(15,23,42,0.85));
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(251,191,36,0.25);
+  border-radius: 999px;
+}

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: lux-auction-multiplayer
+    runtime: node
+    rootDir: lux-auction-multiplayer-fixed
+    region: singapore
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
