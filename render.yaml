@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: lux-auction-multiplayer-fixed
     region: singapore
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install --no-audit --no-fund && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeployTrigger: commit
