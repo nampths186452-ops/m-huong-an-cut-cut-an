@@ -2,6 +2,7 @@ services:
   - type: web
     name: lux-auction-multiplayer
     runtime: node
+    plan: free
     rootDir: lux-auction-multiplayer-fixed
     region: singapore
     buildCommand: npm ci && npm run build
