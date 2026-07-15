@@ -196,7 +196,7 @@ function QuizPhase({ state }) {
   if (self?.quizDone) {
     return (
       <div className="space-y-5 text-center">
-        <SectionTitle eyebrow="Quiz hoàn tất" title="Bạn đã hoàn thành 5 câu hỏi" />
+        <SectionTitle eyebrow="Quiz hoàn tất" title={`Bạn đã hoàn thành ${state.rules.questionCount} câu hỏi`} />
         <p className="text-xl text-slate-200">Số tiền hiện tại của bạn: <b className="text-amber-200">{money(self.money)}</b></p>
         <p className="text-slate-300/80">Vui lòng chờ những người chơi khác hoàn thành.</p>
       </div>
@@ -209,7 +209,7 @@ function QuizPhase({ state }) {
 
   return (
     <div className="space-y-6">
-      <SectionTitle eyebrow={`Câu ${question?.index + 1 || 1}/${question?.total || 5}`} title="Trả lời câu hỏi" />
+      <SectionTitle eyebrow={`Câu ${question?.index + 1 || 1}/${question?.total || state.rules.questionCount}`} title="Trả lời câu hỏi" />
       {question?.chapter && <p className="text-sm font-bold uppercase tracking-[0.16em] text-amber-200/70">{question.chapter}</p>}
       <div className="card p-6">
         <p className="text-2xl font-extrabold leading-relaxed text-amber-100">{question?.text}</p>

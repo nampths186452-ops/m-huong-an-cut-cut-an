@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 20;
-const QUESTION_COUNT = 5;
+const QUESTION_COUNT = QUESTION_BANK.length;
 const QUIZ_CORRECT_BONUS = 100;
 const AUCTION_ROUNDS = 3;
 const AUCTION_START_PRICE = 10;
@@ -74,12 +74,7 @@ function randomFrom(list) {
 }
 
 function selectQuestionIds() {
-  const ids = QUESTION_BANK.map((_, index) => index);
-  for (let index = ids.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [ids[index], ids[swapIndex]] = [ids[swapIndex], ids[index]];
-  }
-  return ids.slice(0, QUESTION_COUNT);
+  return QUESTION_BANK.map((_, index) => index);
 }
 
 function getQuestion(index) {
@@ -457,7 +452,7 @@ io.on('connection', (socket) => {
     game.auction = createInitialGame().auction;
     game.questionIds = selectQuestionIds();
     game.phase = 'quiz';
-    addNotification('Game bắt đầu. Mỗi người chơi trả lời 5 câu hỏi.', 'gold');
+    addNotification(`Game bắt đầu. Mỗi người chơi trả lời ${QUESTION_COUNT} câu hỏi.`, 'gold');
     broadcastState();
   });
 

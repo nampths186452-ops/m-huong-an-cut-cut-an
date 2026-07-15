@@ -1,7 +1,8 @@
+// Nguồn nội dung: "câu hỏi mln.docx" do người dùng cung cấp.
 export const QUESTION_BANK = [
   {
     chapter: 'Chương 1: Đối tượng, phương pháp nghiên cứu và chức năng',
-    text: 'Thuật ngữ “Kinh tế chính trị” lần đầu tiên xuất hiện trong tác phẩm nào?',
+    text: 'Thuật ngữ "Kinh tế chính trị" lần đầu tiên xuất hiện trong tác phẩm nào?',
     options: [
       'An Inquiry into the Nature and Causes of the Wealth of Nations (Adam Smith)',
       'Traicté de l’oeconomie politique (Antoine de Montchrétien)',
@@ -95,7 +96,7 @@ export const QUESTION_BANK = [
   },
   {
     chapter: 'Chương 3: Giá trị thặng dư',
-    text: 'Điểm khác biệt cốt lõi giữa công thức H – T – H và T – H – T′ là:',
+    text: "Điểm khác biệt cốt lõi giữa công thức H – T – H và T – H – T' là:",
     options: ['Trình tự lưu thông.', 'Có sự xuất hiện của tiền.', 'Mục đích của quá trình lưu thông.', 'Hình thái vật ngang giá.'],
     correctIndex: 2
   },
@@ -205,4 +206,3 @@ export const QUESTION_BANK = [
     correctIndex: 2
   }
 ];
-
