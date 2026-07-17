@@ -2,7 +2,7 @@
   "name": "lux-auction-multiplayer-fixed",
   "version": "1.0.0",
   "private": true,
-  "description": "Money Mash & Secret Auction - realtime multiplayer game using Node.js, Express, Socket.IO, React and Tailwind CSS.",
+  "description": "Realtime multiplayer land auction and policy simulation using Node.js, Socket.IO and React.",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"node --watch server.js\" \"vite --host 0.0.0.0 --config client/vite.config.js\"",

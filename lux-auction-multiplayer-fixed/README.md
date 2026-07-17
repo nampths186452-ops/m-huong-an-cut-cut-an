@@ -1,6 +1,6 @@
-# Money Mash & Secret Auction
+# Đấu Giá Đất & Thay Đổi Thể Chế
 
-Web game multiplayer realtime dùng Node.js, Express, Socket.IO, React, Vite và Tailwind CSS. Một phòng hỗ trợ tối đa 20 người chơi; trạng thái được giữ trong RAM của server.
+Web game multiplayer realtime theo nhóm, mô phỏng tích lũy coin, đấu giá đất, vai trò điều tiết của ban tổ chức và đối thoại chính sách sau đấu giá. Một phòng hỗ trợ tối đa 20 người chơi; trạng thái được giữ trong RAM của server.
 
 ## Cấu trúc thư mục
 
@@ -125,11 +125,12 @@ Health check dùng đường dẫn `/api/health`. Không cần tạo database. V
 
 ## Luồng game
 
-1. Người chơi nhập tên vào lobby.
-2. Chủ phòng bấm bắt đầu game.
-3. Server xáo ngân hàng 20 câu và chọn 5 câu chung cho ván; mỗi câu xong người chơi chọn 1 hộp.
-4. Kết thúc quiz chuyển sang lập đội/chơi đơn.
-5. Chủ phòng chuyển sang đấu giá.
-6. Có 3 vòng đấu giá. Người chơi bấm Space hoặc nút Buzzer.
-7. Mỗi bid thành công tăng $50. Chủ phòng chốt hoặc hệ thống tự chốt sau 10 giây không có bid.
-8. Kết thúc 3 vòng hiển thị bảng tổng kết.
+1. Người chơi nhập tên cá nhân và tên nhóm ngay khi vào sảnh; những người nhập cùng tên nhóm sẽ chơi chung.
+2. Người tổ chức bắt đầu phần câu hỏi. Mỗi câu đúng cộng 100 coin vào quỹ chung của nhóm, không có hộp quà.
+3. Khi mọi người hoàn thành, game tự chuyển sang 3 vòng đấu giá đất có vị trí, diện tích, mục đích sử dụng, giá khởi điểm và bonus khác nhau.
+4. Trước mỗi vòng, người tổ chức chọn một thể chế mô phỏng: không can thiệp, tăng giá khởi điểm, phụ thu chuyển nhượng hoặc giới hạn sở hữu.
+5. Các nhóm nói mức giá bằng lời; kế toán chọn nhóm, nhập mức giá và ghi nhận từng lượt vào sổ đấu giá của vòng.
+6. Người tổ chức chốt giá thủ công. Hệ thống trừ tiền, phụ thu (nếu có) và lưu kết quả của từng lô đất.
+7. Sau vòng cuối, tất cả người chơi đánh giá mức công bằng và đề xuất thay đổi chính sách/thể chế.
+
+Danh sách `INSTITUTIONS` ở đầu `server.js` là nội dung mẫu và có thể thay trực tiếp bằng nội dung thể chế do Lâm cung cấp.
