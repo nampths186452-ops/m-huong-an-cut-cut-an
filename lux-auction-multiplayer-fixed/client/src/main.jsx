@@ -105,7 +105,6 @@ function App() {
             </section>
             <aside className="space-y-5">
               <Leaderboard state={state} />
-              <HostPanel state={state} isHost={isHost} />
             </aside>
           </div>
         )}
@@ -119,7 +118,7 @@ function Header({ state, connected, isHost, joined }) {
     lobby: 'Sảnh chờ',
     quiz: 'Tích lũy coin',
     auction: 'Đấu giá đất',
-    result: 'Góp ý chính sách'
+    result: 'Lật ô đất'
   }[state?.phase] || 'Đang kết nối';
 
   return (
@@ -127,7 +126,7 @@ function Header({ state, connected, isHost, joined }) {
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.35em] text-amber-200/70">Luxury Auction Game</p>
         <h1 className="font-display mt-2 text-3xl font-extrabold text-amber-200 md:text-5xl">
-          Đấu Giá Đất & Thay Đổi Thể Chế
+          Đấu Giá Đất Theo Nhóm
         </h1>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -288,19 +287,22 @@ function AnswerFeedback({ self }) {
 function AuctionPhase({ state, isHost }) {
   const auction = state.auction;
   const nextPrice = auction.currentPrice + state.rules.bidStep;
-  const [selectedEntityId, setSelectedEntityId] = useState(state.entities[0]?.id || '');
-  const [bidAmount, setBidAmount] = useState(nextPrice);
-  const currentInstitution = state.institutions.find((item) => item.id === auction.institutionId) || state.institutions[0];
+  const selfEntity = state.entities.find((entity) => entity.id === state.self?.entityId);
+  const canBid = auction.active && selfEntity && selfEntity.money >= nextPrice;
   const visibleLot = auction.item || state.landLots[auction.roundIndex] || state.landLots.at(-1);
-  const roundLedger = auction.bidLedger.filter((bid) => bid.round === auction.roundIndex);
 
   useEffect(() => {
-    setBidAmount(nextPrice);
-  }, [nextPrice]);
-
-  function recordBid() {
-    socket.emit('auction:recordBid', { entityId: selectedEntityId, amount: Number(bidAmount) });
-  }
+    function handleKeyDown(event) {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || !canBid) return;
+      if (event.code === 'Space') {
+        event.preventDefault();
+        socket.emit('auction:bid');
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canBid]);
 
   return (
     <div className="space-y-6">
@@ -325,51 +327,26 @@ function AuctionPhase({ state, isHost }) {
         <div className="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Diện tích" value={visibleLot?.area || '--'} />
           <Stat label="Mục đích sử dụng" value={visibleLot?.purpose || '--'} />
-          <Stat label="Giá khởi điểm" value={money((visibleLot?.reservePrice || 0) + (currentInstitution?.reserveIncrease || 0))} />
+          <Stat label="Giá khởi điểm" value={money(visibleLot?.reservePrice || 0)} />
           <Stat label="Giá hiện tại" value={auction.active ? money(auction.currentPrice) : 'Chưa mở vòng'} />
         </div>
         <p className="px-6 pb-6 text-slate-200/80"><b>Lợi thế:</b> {visibleLot?.advantage}</p>
       </div>
 
-      <div className="card p-6">
-        <h3 className="font-display text-2xl font-bold text-amber-200">🏛️ Thể chế do ban tổ chức áp dụng</h3>
-        <p className="mt-2 text-slate-300/80">Can thiệp này mô phỏng vai trò quản lý nhà nước và có thể làm thay đổi kết quả đấu giá.</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {state.institutions.map((institution) => (
-            <button key={institution.id} disabled={!isHost || auction.active} onClick={() => socket.emit('auction:setInstitution', { institutionId: institution.id })} className={`rounded-2xl border p-4 text-left transition ${auction.institutionId === institution.id ? 'border-amber-300/60 bg-amber-300/15' : 'border-white/10 bg-black/20 hover:border-amber-300/30'}`}>
-              <div className="font-bold text-amber-100">{institution.name}</div>
-              <div className="mt-1 text-sm text-slate-300/75">{institution.description}</div>
-            </button>
-          ))}
-        </div>
-        {isHost && !auction.active && auction.roundIndex < state.rules.auctionRounds && <button className="btn-gold mt-5" onClick={() => socket.emit('auction:startRound')}>Mở vòng đấu giá</button>}
-      </div>
-
       <div className="card p-5">
-        <h3 className="font-display text-2xl font-bold text-amber-200">🧾 Bàn kế toán ghi nhận trả giá</h3>
-        <p className="mt-2 text-slate-300/80">Các nhóm nói mức giá bằng lời. Kế toán chọn nhóm và nhập đúng số coin để lưu vào sổ vòng này.</p>
-        <div className="mt-5 grid gap-3 md:grid-cols-[1fr_180px_auto]">
-          <select className="input-lux" value={selectedEntityId} onChange={(event) => setSelectedEntityId(event.target.value)} disabled={!isHost || !auction.active}>
-            {state.entities.map((entity) => <option key={entity.id} value={entity.id}>{entity.name} — quỹ {money(entity.money)}</option>)}
-          </select>
-          <input className="input-lux" type="number" min={nextPrice} step={state.rules.bidStep} value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} disabled={!isHost || !auction.active} />
-          <button className="btn-gold" onClick={recordBid} disabled={!isHost || !auction.active || !selectedEntityId}>Ghi nhận giá</button>
-        </div>
+        <h3 className="font-display text-2xl font-bold text-amber-200">Trả giá trực tiếp</h3>
+        <p className="mt-2 text-slate-300/80">Mỗi lần bấm sẽ tăng giá thêm {money(state.rules.bidStep)} cho chính nhóm của bạn.</p>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <Stat label="Nhóm đang dẫn" value={auction.leaderName || '--'} />
-          <Stat label="Giá đã ghi" value={money(auction.currentPrice)} />
-          <Stat label="Giá tối thiểu tiếp theo" value={money(nextPrice)} />
+          <Stat label="Giá hiện tại" value={money(auction.currentPrice)} />
+          <Stat label="Lượt tiếp theo" value={money(nextPrice)} />
         </div>
-        <div className="mt-5 max-h-64 space-y-2 overflow-auto pr-1 scrollbar-thin">
-          {roundLedger.length === 0 && <p className="text-slate-400">Chưa có lượt trả giá nào được ghi.</p>}
-          {[...roundLedger].reverse().map((bid, index) => (
-            <div key={bid.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-3">
-              <span><b className="text-amber-100">#{roundLedger.length - index} · {bid.entityName}</b></span>
-              <span className="font-black text-emerald-200">{money(bid.amount)}</span>
-            </div>
-          ))}
+        <div className="mt-5 flex flex-wrap gap-3">
+          {isHost && !auction.active && auction.roundIndex < state.rules.auctionRounds && <button className="btn-gold" onClick={() => socket.emit('auction:startRound')}>Mở vòng đấu giá</button>}
+          {auction.active && <button className="btn-gold text-lg" disabled={!canBid} onClick={() => socket.emit('auction:bid')}>Trả giá +{money(state.rules.bidStep)}</button>}
+          {isHost && auction.active && <button className="btn-maroon" onClick={() => socket.emit('auction:closeRound')}>Chốt giá và kết thúc vòng</button>}
         </div>
-        {isHost && auction.active && <button className="btn-maroon mt-5" onClick={() => socket.emit('auction:closeRound')}>Chốt giá và kết thúc vòng</button>}
+        {auction.active && !canBid && <p className="mt-3 text-sm text-red-200">Nhóm của bạn không đủ coin cho lượt giá tiếp theo.</p>}
       </div>
     </div>
   );
@@ -378,22 +355,11 @@ function AuctionPhase({ state, isHost }) {
 function Results({ state, isHost }) {
   const ranking = state.entities.length > 0 ? state.entities : [];
   const winner = ranking[0];
-  const ownFeedback = state.feedback.find((item) => item.playerId === state.self?.id);
-  const [rating, setRating] = useState(ownFeedback?.rating || 5);
-  const [policyChange, setPolicyChange] = useState(ownFeedback?.policyChange || '');
-  const [comment, setComment] = useState(ownFeedback?.comment || '');
-  const [feedbackStatus, setFeedbackStatus] = useState('');
-
-  function submitFeedback(event) {
-    event.preventDefault();
-    socket.timeout(5000).emit('feedback:submit', { rating, policyChange, comment }, (error, response) => {
-      setFeedbackStatus(error ? 'Máy chủ chưa phản hồi.' : response?.ok ? 'Đã lưu ý kiến của bạn.' : response?.error || 'Không thể lưu ý kiến.');
-    });
-  }
+  const landIcons = ['🌊', '🏙️', '🏛️', '🏭', '⛰️'];
 
   return (
     <div className="space-y-6">
-      <SectionTitle eyebrow="Giai đoạn 4" title="Tổng kết và đối thoại chính sách" />
+      <SectionTitle eyebrow="Giai đoạn 4" title="Tổng kết và lật 5 ô đất" />
       <div className="rounded-[2rem] border border-amber-300/30 bg-amber-300/10 p-8 text-center">
         <div className="text-6xl">🏆</div>
         <h2 className="font-display mt-4 text-4xl font-extrabold text-amber-100">Chúc mừng {winner?.name || 'người thắng cuộc'}!</h2>
@@ -407,44 +373,39 @@ function Results({ state, isHost }) {
             <div key={winner.round} className="rounded-2xl border border-white/10 bg-black/25 p-4">
               <div className="font-display text-xl font-bold text-amber-100">Vòng {winner.round}: {winner.item?.name}</div>
               <div className="text-slate-200">Người thắng: <b>{winner.winnerName}</b></div>
-              {winner.winnerId && <div className="text-slate-300/80">Giá chốt: {money(winner.price)} · Phụ thu: {money(winner.surcharge || 0)} · Tổng chi: {money(winner.totalCost || winner.price)} · Bonus đất: {money(winner.item?.bonus || 0)}</div>}
-              <div className="mt-1 text-sm text-amber-100/75">Thể chế: {winner.institution?.name || 'Không can thiệp'}</div>
+              {winner.winnerId && <div className="text-slate-300/80">Giá chốt: {money(winner.price)} · Bonus đất: {money(winner.item?.bonus || 0)}</div>}
             </div>
           ))}
         </div>
       </div>
 
-      <form className="card p-6" onSubmit={submitFeedback}>
-        <h3 className="font-display text-2xl font-bold text-amber-200">💬 Mời các nhóm góp ý cải thiện</h3>
-        <p className="mt-2 text-slate-300/80">Thay đổi chính trị có thể dẫn đến thay đổi chính sách. Hãy nêu điều nên giữ, điều cần sửa và thể chế bạn muốn thay đổi.</p>
-        <div className="mt-5 grid gap-4">
-          <label className="font-bold text-amber-100">Mức độ công bằng của phiên đấu giá (1–5)
-            <select className="input-lux mt-2" value={rating} onChange={(event) => setRating(Number(event.target.value))}>
-              {[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value} / 5</option>)}
-            </select>
-          </label>
-          <label className="font-bold text-amber-100">Chính sách/thể chế cần thay đổi
-            <input className="input-lux mt-2" value={policyChange} onChange={(event) => setPolicyChange(event.target.value)} maxLength={160} placeholder="Ví dụ: giảm phụ thu, thay đổi giá khởi điểm..." />
-          </label>
-          <label className="font-bold text-amber-100">Ý kiến cải thiện
-            <textarea className="input-lux mt-2 min-h-28" value={comment} onChange={(event) => setComment(event.target.value)} maxLength={500} placeholder="Điều gì đã cản trở nhóm? Luật nào nên được sửa?" />
-          </label>
-          <button className="btn-gold justify-self-start" type="submit">Gửi ý kiến</button>
-          {feedbackStatus && <p className="font-bold text-emerald-200">{feedbackStatus}</p>}
-        </div>
-      </form>
-
       <div className="card p-6">
-        <h3 className="font-display text-2xl font-bold text-amber-200">Tổng hợp ý kiến ({state.feedback.length})</h3>
-        <div className="mt-4 space-y-3">
-          {state.feedback.length === 0 && <p className="text-slate-400">Chưa có ý kiến nào.</p>}
-          {state.feedback.map((item) => (
-            <div key={item.id} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <div className="font-bold text-amber-100">{item.groupName} · {item.rating}/5</div>
-              {item.policyChange && <div className="mt-1 text-slate-200"><b>Đề xuất chính sách:</b> {item.policyChange}</div>}
-              {item.comment && <div className="mt-1 text-slate-300/80">{item.comment}</div>}
-            </div>
-          ))}
+        <h3 className="font-display text-center text-3xl font-bold text-amber-200">Lật ô đất nhận kết quả bí mật</h3>
+        <p className="mt-2 text-center text-slate-300/80">Năm ô chứa ngẫu nhiên: 5 điểm, 1 điểm, hai phần quà và một hình phạt.</p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {state.landReveals.map((entry, index) => {
+            const lot = state.landLots.find((item) => item.id === entry.lotId);
+            const lotWinner = state.auction.winners.find((item) => item.item?.id === entry.lotId);
+            return (
+              <button key={entry.lotId} className={`land-flip-card ${entry.revealed ? 'is-flipped' : ''}`} onClick={() => socket.emit('result:flipLand', { index })} disabled={entry.revealed} aria-label={entry.revealed ? `Ô đất ${index + 1}: ${entry.reward?.label}` : `Lật ô đất ${index + 1}`}>
+                <span className="land-flip-inner">
+                  <span className="land-flip-face land-flip-front">
+                    <span className="land-card-image">{landIcons[index]}</span>
+                    <span className="text-xs font-black uppercase tracking-[0.18em] text-amber-200/70">{lot?.code}</span>
+                    <span className="font-display mt-2 text-lg font-bold text-amber-100">{lot?.name}</span>
+                    <span className="mt-2 text-xs text-emerald-200">{lotWinner?.winnerId ? `Thuộc về ${lotWinner.winnerName}` : 'Chưa có chủ sở hữu'}</span>
+                    <span className="mt-3 text-sm text-slate-300">Bấm để lật</span>
+                  </span>
+                  <span className={`land-flip-face land-flip-back reward-${entry.reward?.tone || 'hidden'}`}>
+                    <span className="text-5xl">{entry.reward?.icon || '❓'}</span>
+                    <span className="font-display mt-3 text-2xl font-black">{entry.reward?.label || 'Bí mật'}</span>
+                    <span className="mt-2 text-sm">{lotWinner?.winnerId ? lotWinner.winnerName : 'Không có người thắng'}</span>
+                    <span className="mt-2 text-xs uppercase tracking-[0.2em]">Ô đất {index + 1}</span>
+                  </span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -476,21 +437,6 @@ function Leaderboard({ state }) {
               <div className="text-right font-black text-emerald-200">{money(row.finalScore ?? row.money)}</div>
             </div>
           </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function HostPanel({ state, isHost }) {
-  return (
-    <section className="glass rounded-[2rem] p-5">
-      <h2 className="font-display text-2xl font-bold text-amber-200">Ban tổ chức</h2>
-      <p className="mt-2 text-sm text-slate-300/80">Người tổ chức hiện tại: <b className="text-amber-100">{state.players.find((p) => p.id === state.hostId)?.name || '--'}</b></p>
-      {!isHost && <button className="btn-navy mt-4 w-full" onClick={() => socket.emit('host:claim')}>Nhận vai trò tổ chức</button>}
-      <div className="mt-5 space-y-2">
-        {state.notifications?.slice(0, 5).map((note) => (
-          <div key={note.id} className="rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-slate-200">{note.text}</div>
         ))}
       </div>
     </section>

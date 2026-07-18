@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3000;
 const MAX_PLAYERS = 20;
 const QUESTION_COUNT = QUESTION_BANK.length;
 const QUIZ_CORRECT_BONUS = 100;
-const AUCTION_ROUNDS = 3;
+const AUCTION_ROUNDS = 5;
 const AUCTION_START_PRICE = 100;
 const BID_STEP = 50;
 const EMPTY_ROOM_RESET_MS = 15_000;
@@ -55,44 +55,47 @@ const AUCTION_ITEMS = [
     advantage: 'Vị trí khan hiếm, giá trị khai thác cao nhất',
     reservePrice: 400,
     bonus: 800
+  },
+  {
+    id: 'land_industrial',
+    code: 'LÔ D-21',
+    name: 'Đất công nghiệp Tân Phát',
+    location: 'Cụm sản xuất phía Bắc của thành phố giả định',
+    area: '320 m²',
+    purpose: 'Sản xuất – kho vận',
+    advantage: 'Gần tuyến vận tải, khả năng khai thác dài hạn',
+    reservePrice: 550,
+    bonus: 1_000
+  },
+  {
+    id: 'land_tourism',
+    code: 'LÔ E-30',
+    name: 'Đất du lịch Đồi Ánh Dương',
+    location: 'Khu cảnh quan trên đồi của thành phố giả định',
+    area: '450 m²',
+    purpose: 'Du lịch – nghỉ dưỡng',
+    advantage: 'Quỹ đất lớn, cảnh quan đẹp và giá trị cao nhất',
+    reservePrice: 700,
+    bonus: 1_300
   }
 ];
 
-// Nội dung mô phỏng; có thể thay bằng bộ thể chế do Lâm cung cấp sau.
-const INSTITUTIONS = [
-  {
-    id: 'none',
-    name: 'Không can thiệp',
-    description: 'Tổ chức vòng đấu giá theo điều kiện cơ bản.',
-    reserveIncrease: 0,
-    surchargeRate: 0,
-    ownershipLimit: null
-  },
-  {
-    id: 'higher_reserve',
-    name: 'Điều chỉnh tăng giá khởi điểm',
-    description: 'Cơ quan tổ chức tăng thêm 100 coin vào giá khởi điểm để hạn chế đầu cơ.',
-    reserveIncrease: 100,
-    surchargeRate: 0,
-    ownershipLimit: null
-  },
-  {
-    id: 'transfer_fee',
-    name: 'Phụ thu chuyển nhượng 10%',
-    description: 'Nhóm thắng phải nộp thêm 10% giá chốt vào ngân sách mô phỏng.',
-    reserveIncrease: 0,
-    surchargeRate: 0.1,
-    ownershipLimit: null
-  },
-  {
-    id: 'ownership_cap',
-    name: 'Giới hạn tập trung sở hữu',
-    description: 'Nhóm đã thắng 1 lô đất không được tham gia trả giá lô tiếp theo.',
-    reserveIncrease: 0,
-    surchargeRate: 0,
-    ownershipLimit: 1
-  }
+const LAND_REWARDS = [
+  { id: 'five_points', label: '+5 điểm', icon: '⭐', tone: 'points' },
+  { id: 'one_point', label: '+1 điểm', icon: '✨', tone: 'points' },
+  { id: 'gift_one', label: 'Quà', icon: '🎁', tone: 'gift' },
+  { id: 'gift_two', label: 'Quà', icon: '🎁', tone: 'gift' },
+  { id: 'penalty', label: 'Phạt', icon: '⚠️', tone: 'penalty' }
 ];
+
+function shuffled(list) {
+  const copy = [...list];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
 
 let emptyRoomTimer = null;
 
@@ -113,11 +116,13 @@ const createInitialGame = () => ({
     lastBidAt: null,
     item: null,
     winners: [],
-    bidLedger: [],
-    institutionId: 'none',
     flash: null
   },
-  feedback: []
+  landReveals: shuffled(LAND_REWARDS).map((reward, index) => ({
+    lotId: AUCTION_ITEMS[index].id,
+    reward,
+    revealed: false
+  }))
 });
 
 let game = createInitialGame();
@@ -286,11 +291,14 @@ function getStateFor(socket) {
       money: t.members.reduce((sum, playerId) => sum + (game.players[playerId]?.money || 0), 0)
     })),
     entities: getEntitiesLeaderboard(),
-    institutions: INSTITUTIONS,
     landLots: AUCTION_ITEMS,
     auction: { ...game.auction },
     notifications: game.notifications,
-    feedback: game.feedback,
+    landReveals: game.landReveals.map((entry) => ({
+      lotId: entry.lotId,
+      revealed: entry.revealed,
+      reward: entry.revealed ? entry.reward : null
+    })),
     self: buildSelfState(socket.data.playerId)
   };
 }
@@ -338,12 +346,11 @@ function startAuctionRound(socket) {
 
   const nextIndex = game.auction.roundIndex + 1;
   const item = AUCTION_ITEMS[nextIndex - 1];
-  const institution = INSTITUTIONS.find((entry) => entry.id === game.auction.institutionId) || INSTITUTIONS[0];
   game.auction = {
     ...game.auction,
     roundIndex: nextIndex,
     active: true,
-    currentPrice: item.reservePrice + institution.reserveIncrease,
+    currentPrice: item.reservePrice,
     leaderEntityId: null,
     leaderName: '--',
     lastBidAt: Date.now(),
@@ -358,28 +365,22 @@ function startAuctionRound(socket) {
 function closeAuctionRound(reason = 'host') {
   if (game.phase !== 'auction' || !game.auction.active) return;
   const item = game.auction.item;
-  const institution = INSTITUTIONS.find((entry) => entry.id === game.auction.institutionId) || INSTITUTIONS[0];
   const leaderId = game.auction.leaderEntityId;
   const price = game.auction.currentPrice;
 
   if (leaderId && game.entities[leaderId]) {
     const entity = game.entities[leaderId];
-    const surcharge = Math.round(price * institution.surchargeRate);
-    const totalCost = price + surcharge;
-    entity.money = Math.max(0, entity.money - totalCost);
-    entity.items.push({ ...item, price, surcharge, totalCost, round: game.auction.roundIndex });
+    entity.money = Math.max(0, entity.money - price);
+    entity.items.push({ ...item, price, round: game.auction.roundIndex });
     game.auction.winners.push({
       round: game.auction.roundIndex,
       item,
       winnerId: entity.id,
       winnerName: entity.name,
       price,
-      surcharge,
-      totalCost,
-      institution,
       reason
     });
-    addNotification(`${entity.name} thắng ${item.name} với tổng chi $${totalCost}.`, 'success');
+    addNotification(`${entity.name} thắng ${item.name} với giá ${price} coin.`, 'success');
   } else {
     game.auction.winners.push({
       round: game.auction.roundIndex,
@@ -387,9 +388,6 @@ function closeAuctionRound(reason = 'host') {
       winnerId: null,
       winnerName: 'Không có người thắng',
       price: 0,
-      surcharge: 0,
-      totalCost: 0,
-      institution,
       reason
     });
     addNotification(`${item.name} không có người thắng.`, 'info');
@@ -580,61 +578,31 @@ io.on('connection', (socket) => {
 
   socket.on('auction:startRound', () => startAuctionRound(socket));
 
-  socket.on('auction:setInstitution', ({ institutionId } = {}) => {
-    if (!requireHost(socket)) return;
-    if (game.phase !== 'auction' || game.auction.active) return;
-    const institution = INSTITUTIONS.find((entry) => entry.id === institutionId);
-    if (!institution) return;
-    game.auction.institutionId = institution.id;
-    addNotification(`Ban tổ chức chọn thể chế: ${institution.name}.`, 'gold');
-    broadcastState();
-  });
-
-  socket.on('auction:recordBid', ({ entityId, amount } = {}) => {
-    if (!requireHost(socket)) return;
+  socket.on('auction:bid', () => {
+    const player = playerForSocket(socket);
+    if (!player) return;
     if (game.phase !== 'auction' || !game.auction.active) return;
 
-    const entity = game.entities[entityId];
+    const entity = getEntityByPlayerId(player.id);
     if (!entity) {
-      socket.emit('auction:bidRejected', { reason: 'Hãy chọn đúng nhóm vừa trả giá.' });
+      socket.emit('auction:bidRejected', { reason: 'Bạn chưa thuộc nhóm đấu giá.' });
       return;
     }
 
-    const bidAmount = Math.round(Number(amount));
-    const minimumBid = game.auction.currentPrice + BID_STEP;
-    if (!Number.isFinite(bidAmount) || bidAmount < minimumBid) {
-      socket.emit('auction:bidRejected', { reason: `Mức giá mới phải từ ${minimumBid} coin.` });
-      return;
-    }
-
-    const institution = INSTITUTIONS.find((entry) => entry.id === game.auction.institutionId) || INSTITUTIONS[0];
-    if (institution.ownershipLimit !== null && entity.items.length >= institution.ownershipLimit) {
-      socket.emit('auction:bidRejected', { reason: `${entity.name} đã đạt giới hạn sở hữu của thể chế vòng này.` });
-      return;
-    }
-
-    const projectedCost = bidAmount + Math.round(bidAmount * institution.surchargeRate);
-    if (entity.money < projectedCost) {
-      socket.emit('auction:bidRejected', { reason: `${entity.name} không đủ quỹ. Tổng chi dự kiến là ${projectedCost} coin.` });
+    const nextPrice = game.auction.currentPrice + BID_STEP;
+    if (entity.money < nextPrice) {
+      socket.emit('auction:bidRejected', { reason: `${entity.name} không đủ quỹ để trả ${nextPrice} coin.` });
       return;
     }
 
     const now = Date.now();
-    game.auction.currentPrice = bidAmount;
+    game.auction.currentPrice = nextPrice;
     game.auction.leaderEntityId = entity.id;
     game.auction.leaderName = entity.name;
     game.auction.lastBidAt = now;
-    game.auction.bidLedger.push({
-      id: id('bid'),
-      round: game.auction.roundIndex,
-      entityId: entity.id,
-      entityName: entity.name,
-      amount: bidAmount,
-      at: now
-    });
-    game.auction.flash = { id: id('flash'), name: entity.name, price: bidAmount, at: now };
+    game.auction.flash = { id: id('flash'), name: entity.name, price: nextPrice, at: now };
 
-    io.emit('auction:bidAccepted', { name: entity.name, price: bidAmount, at: now });
+    io.emit('auction:bidAccepted', { name: entity.name, price: nextPrice, at: now });
     broadcastState();
   });
 
@@ -643,33 +611,14 @@ io.on('connection', (socket) => {
     closeAuctionRound('host');
   });
 
-  socket.on('feedback:submit', ({ rating, policyChange, comment } = {}, acknowledge = () => {}) => {
+  socket.on('result:flipLand', ({ index } = {}) => {
     const player = playerForSocket(socket);
-    if (!player || game.phase !== 'result') {
-      acknowledge({ ok: false, error: 'Chỉ góp ý sau khi đấu giá kết thúc.' });
-      return;
-    }
-
-    const cleanPolicyChange = String(policyChange || '').trim().slice(0, 160);
-    const cleanComment = String(comment || '').trim().slice(0, 500);
-    const cleanRating = Math.min(5, Math.max(1, Math.round(Number(rating) || 0)));
-    if (!cleanPolicyChange && !cleanComment) {
-      acknowledge({ ok: false, error: 'Hãy nhập ít nhất một ý kiến.' });
-      return;
-    }
-
-    const entry = {
-      id: id('feedback'),
-      playerId: player.id,
-      playerName: player.name,
-      groupName: game.teams[player.teamId]?.name || 'Không rõ nhóm',
-      rating: cleanRating,
-      policyChange: cleanPolicyChange,
-      comment: cleanComment,
-      at: Date.now()
-    };
-    game.feedback = [entry, ...game.feedback.filter((item) => item.playerId !== player.id)];
-    acknowledge({ ok: true });
+    if (!player || game.phase !== 'result') return;
+    const revealIndex = Number(index);
+    const entry = game.landReveals[revealIndex];
+    if (!entry || entry.revealed) return;
+    entry.revealed = true;
+    addNotification(`${player.name} đã lật ô đất số ${revealIndex + 1}: ${entry.reward.label}.`, 'gold');
     broadcastState();
   });
 
