@@ -1,208 +1,214 @@
-// Nguồn nội dung: "câu hỏi mln.docx" do người dùng cung cấp.
+// Nguồn nội dung: "câu hỏi mln (2).docx" do người dùng cung cấp.
+// Trong tài liệu Word, lựa chọn in đậm được dùng làm đáp án đúng.
 export const QUESTION_BANK = [
   {
-    chapter: 'Chương 1: Đối tượng, phương pháp nghiên cứu và chức năng',
-    text: 'Thuật ngữ "Kinh tế chính trị" lần đầu tiên xuất hiện trong tác phẩm nào?',
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Việc sản xuất và trao đổi hàng hóa phải được tiến hành dựa trên cơ sở:',
     options: [
-      'An Inquiry into the Nature and Causes of the Wealth of Nations (Adam Smith)',
-      'Traicté de l’oeconomie politique (Antoine de Montchrétien)',
-      'Principles of Political Economy and Taxation (David Ricardo)',
-      'Bộ Tư bản (C. Mác)'
+      'Hao phí thời gian lao động cần thiết',
+      'Hao phí thời gian lao động của người sản xuất hàng hóa',
+      'Hao phí thời gian lao động xã hội cần thiết',
+      'Hao phí lao động quá khứ và lao động sống của người sản xuất'
+    ],
+    correctIndex: 0
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Nếu nhà tư bản trả tiền công theo đúng giá trị sức lao động thì có bóc lột được giá trị thặng dư (m) không?',
+    options: ['Không', 'Có', 'Bị lỗ vốn', 'Không lỗ, không lãi'],
+    correctIndex: 1
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Kinh tế nhà nước gồm có những bộ phận nào?',
+    options: [
+      'Gồm có đất đai, tài nguyên, ngân sách nhà nước, dự trữ quốc gia, các quỹ của nhà nước và bộ phận kinh doanh có vốn của nhà nước',
+      'Gồm có các doanh nghiệp nhà nước',
+      'Bao gồm phần kinh doanh có vốn của nhà nước',
+      'Cả a và b'
+    ],
+    correctIndex: 0
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Trong nền kinh tế thị trường định hướng XHCN, thành phần kinh tế nào đóng vai trò chủ đạo?',
+    options: [
+      'Kinh tế Nhà nước và kinh tế tập thể (nòng cốt là hợp tác xã)',
+      'Kinh tế quốc doanh',
+      'Kinh tế Nhà nước',
+      'Kinh tế tập thể'
+    ],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Hình thức phân phối thu nhập trong nền kinh tế nước ta hiện nay gồm có:',
+    options: [
+      'Phân phối theo lao động, tiền vốn và lợi nhuận',
+      'Phân phối theo lao động và phân phối ngoài thù lao lao động thông qua các quỹ phúc lợi xã hội',
+      'Phân phối theo kết quả lao động và hiệu quả kinh tế, theo mức đóng góp các nguồn lực khác vào sản xuất kinh doanh, phân phối thông qua phúc lợi xã hội',
+      'Cả 3 hình thức trên'
+    ],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Tác động của việc đánh giá đồng nội tệ cao quá mức đối với hoạt động xuất nhập khẩu:',
+    options: [
+      'Khuyến khích nhập khẩu, hạn chế xuất khẩu',
+      'Hạn chế nhập khẩu, khuyến khích xuất khẩu',
+      'Khuyến khích xuất khẩu và nhập khẩu',
+      'Hạn chế nhập khẩu, khuyến khích tiêu dùng hàng nội địa'
+    ],
+    correctIndex: 0
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Nguồn vốn nước ngoài nào dưới đây mà ta có nghĩa vụ phải trả nợ?',
+    options: [
+      'FDI và ODA',
+      'FDI (đầu tư trực tiếp nước ngoài)',
+      'ODA (viện trợ phát triển theo chương trình)',
+      'Vốn liên doanh của nước ngoài'
+    ],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Đại hội IX của Đảng ta xác định nền kinh tế nước ta có mấy thành phần kinh tế?',
+    options: ['3 thành phần kinh tế', '5 thành phần kinh tế', '6 thành phần kinh tế', '4 thành phần kinh tế'],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Các bộ phận: đất đai, tài nguyên, ngân sách, dự trữ quốc gia, các quỹ nhà nước và bộ phận kinh doanh có vốn của nhà nước liên doanh với nước ngoài thuộc thành phần kinh tế nào ở nước ta?',
+    options: [
+      'Kinh tế nhà nước và kinh tế tập thể.',
+      'Kinh tế nhà nước và kinh tế tư bản nhà nước.',
+      'Kinh tế nhà nước.',
+      'Kinh tế quốc doanh.'
+    ],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Tiêu chí cơ bản để đánh giá hiệu quả xây dựng quan hệ sản xuất xã hội chủ nghĩa là:',
+    options: [
+      'Thúc đẩy lực lượng sản xuất phát triển, cải thiện đời sống.',
+      'Thúc đẩy lực lượng sản xuất phát triển, thực hiện công bằng xã hội.',
+      'Thúc đẩy lực lượng sản xuất phát triển, cải thiện đời sống, thực hiện công bằng xã hội.',
+      'Thúc đẩy lực lượng sản xuất phát triển và củng cố quan hệ sản xuất.'
+    ],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Đại hội Đảng Cộng sản Việt Nam lần thứ IX xác định mô hình kinh tế khái quát trong thời kỳ quá độ ở nước ta là:',
+    options: [
+      'Kinh tế nhiều thành phần.',
+      'Kinh tế kế hoạch hóa theo định hướng XHCN.',
+      'Kinh tế thị trường định hướng XHCN.',
+      'Kinh tế nhiều thành phần có sự quản lý của nhà nước theo định hướng XHCN.'
+    ],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Giá trị thặng dư (m) là gì?',
+    options: [
+      'Lợi nhuận thu được sau khi sản xuất kinh doanh.',
+      'Giá trị của tư bản tự tăng lên.',
+      'Một bộ phận của giá trị mới thừa ra ngoài giá trị sức lao động do người lao động làm thuê tạo ra.',
+      'Hiệu số giữa giá trị hàng hóa và chi phí sản xuất tư bản chủ nghĩa.'
+    ],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Chế độ sở hữu công cộng (công hữu) ở nước ta gồm có:',
+    options: [
+      'Kinh tế nhà nước và kinh tế tập thể.',
+      'Kinh tế nhà nước.',
+      'Kinh tế nhà nước, kinh tế tập thể và phần kinh tế nhà nước và kinh tế tập thể trong các đơn vị liên doanh hỗn hợp.',
+      'Kinh tế nhà nước và phần kinh tế nhà nước trong các đơn vị liên doanh hỗn hợp.'
+    ],
+    correctIndex: 2
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Quy luật giá trị là:',
+    options: [
+      'Quy luật kinh tế riêng có của chủ nghĩa tư bản.',
+      'Quy luật căn bản của sản xuất và trao đổi hàng hóa',
+      'Quy luật kinh tế chung cho mọi phương thức sản xuất xã hội.',
+      'Quy luật vĩnh viễn của xã hội loài người.'
     ],
     correctIndex: 1
   },
   {
-    chapter: 'Chương 1: Đối tượng, phương pháp nghiên cứu và chức năng',
-    text: 'Phương pháp nghiên cứu được coi là phương pháp chủ yếu của kinh tế chính trị Mác – Lênin là:',
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Vai trò của máy móc trong quá trình sản xuất giá trị thặng dư:',
     options: [
-      'Phương pháp thống kê và mô hình hóa toán học.',
-      'Phương pháp diễn dịch và quy nạp.',
-      'Phương pháp trừu tượng hóa khoa học.',
-      'Phương pháp lôgíc kết hợp với lịch sử.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 1: Đối tượng, phương pháp nghiên cứu và chức năng',
-    text: 'Theo giáo trình, đối tượng nghiên cứu của kinh tế chính trị Mác – Lênin là:',
-    options: [
-      'Quá trình sản xuất và lưu thông tư liệu sinh hoạt.',
-      'Các hiện tượng kinh tế và hành vi người tiêu dùng.',
-      'Các quan hệ xã hội của sản xuất và trao đổi trong mối liên hệ với lực lượng sản xuất và kiến trúc thượng tầng.',
-      'Sự phát triển của công cụ lao động qua các thời kỳ.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 1: Đối tượng, phương pháp nghiên cứu và chức năng',
-    text: 'Mục đích nghiên cứu cao nhất của kinh tế chính trị Mác – Lênin là:',
-    options: [
-      'Làm giàu cho các quốc gia.',
-      'Nâng cao hiệu quả quản trị doanh nghiệp.',
-      'Phát hiện các quy luật chi phối quan hệ giữa người với người trong sản xuất và trao đổi.',
-      'Dự báo chính xác khủng hoảng kinh tế.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 2: Hàng hóa, thị trường và các chủ thể',
-    text: 'Tại sao hàng hóa có hai thuộc tính là giá trị sử dụng và giá trị?',
-    options: [
-      'Vì hàng hóa được sản xuất để trao đổi.',
-      'Vì người sản xuất và người tiêu dùng có lợi ích khác nhau.',
-      'Vì lao động sản xuất hàng hóa có tính hai mặt.',
-      'Vì có phân công lao động xã hội.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 2: Hàng hóa, thị trường và các chủ thể',
-    text: 'Điều kiện đủ để sản xuất hàng hóa ra đời và phát triển là:',
-    options: [
-      'Có tiền tệ.',
-      'Có phân công lao động xã hội.',
-      'Có sự tách biệt kinh tế giữa các chủ thể sản xuất.',
-      'Nhu cầu tiêu dùng tăng cao.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 2: Hàng hóa, thị trường và các chủ thể',
-    text: 'Khi năng suất lao động tăng thì lượng giá trị của một đơn vị hàng hóa sẽ:',
-    options: ['Tăng.', 'Giảm.', 'Không đổi.', 'Tăng rồi giảm.'],
-    correctIndex: 1
-  },
-  {
-    chapter: 'Chương 2: Hàng hóa, thị trường và các chủ thể',
-    text: 'Giá trị trao đổi của hàng hóa là:',
-    options: [
-      'Lao động xã hội kết tinh trong hàng hóa.',
-      'Công dụng của hàng hóa.',
-      'Hình thức biểu hiện ra bên ngoài của giá trị.',
-      'Giá bán trên thị trường.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 2: Hàng hóa, thị trường và các chủ thể',
-    text: 'Trong các chức năng của tiền tệ, chức năng nào đòi hỏi tiền phải có đủ giá trị?',
-    options: [
-      'Thước đo giá trị và phương tiện lưu thông.',
-      'Phương tiện lưu thông và thanh toán.',
-      'Phương tiện cất trữ và tiền tệ thế giới.',
-      'Thước đo giá trị và thanh toán.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 3: Giá trị thặng dư',
-    text: "Điểm khác biệt cốt lõi giữa công thức H – T – H và T – H – T' là:",
-    options: ['Trình tự lưu thông.', 'Có sự xuất hiện của tiền.', 'Mục đích của quá trình lưu thông.', 'Hình thái vật ngang giá.'],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 3: Giá trị thặng dư',
-    text: 'Sức lao động là hàng hóa đặc biệt vì:',
-    options: [
-      'Có thể mua mọi hàng hóa khác.',
-      'Giá trị không do lao động quyết định.',
-      'Khi sử dụng tạo ra giá trị lớn hơn giá trị bản thân nó.',
-      'Chỉ tồn tại trong sản xuất hàng hóa giản đơn.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 3: Giá trị thặng dư',
-    text: 'Tư bản khả biến (v) là bộ phận tư bản:',
-    options: [
-      'Giá trị chuyển nguyên vẹn vào sản phẩm.',
-      'Tồn tại dưới dạng máy móc.',
-      'Giá trị tăng lên trong quá trình sản xuất.',
-      'Không thay đổi giá trị.'
-    ],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 3: Giá trị thặng dư',
-    text: 'Tư bản bất biến (c) là bộ phận tư bản:',
-    options: [
-      'Có giá trị tăng lên sau sản xuất.',
-      'Giá trị được bảo tồn và chuyển nguyên vẹn vào sản phẩm.',
-      'Dùng để mua sức lao động.',
-      'Luôn biến đổi về lượng.'
+      'Máy móc là nguồn gốc chủ yếu tạo ra thặng dư.',
+      'Máy móc chỉ là tiền đề vật chất cho việc tạo ra thặng dư.',
+      'Máy móc cùng với sức lao động đều tạo ra thặng dư.',
+      'Máy móc là yếu tố quyết định.'
     ],
     correctIndex: 1
   },
   {
-    chapter: 'Chương 3: Giá trị thặng dư',
-    text: 'Phương pháp sản xuất giá trị thặng dư tương đối dựa trên:',
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Quá trình tái sản xuất xã hội là một thể thống nhất gồm có:',
     options: [
-      'Kéo dài ngày lao động.',
-      'Rút ngắn thời gian lao động tất yếu bằng tăng năng suất lao động.',
-      'Tăng cường độ lao động.',
-      'Mua nguyên liệu rẻ hơn.'
-    ],
-    correctIndex: 1
-  },
-  {
-    chapter: 'Chương 3: Giá trị thặng dư',
-    text: 'Nguồn gốc thực sự của tích lũy tư bản là:',
-    options: [
-      'Tiết kiệm của nhà tư bản.',
-      'Mua rẻ bán đắt.',
-      'Giá trị thặng dư do công nhân tạo ra.',
-      'Máy móc hiện đại.'
+      'Hai khâu: sản xuất và tiêu dùng.',
+      'Ba khâu: sản xuất, phân phối và tiêu dùng.',
+      'Bốn khâu: sản xuất, phân phối, trao đổi và tiêu dùng.',
+      'Năm khâu: sản xuất, lưu thông, phân phối, trao đổi và tiêu dùng.'
     ],
     correctIndex: 2
   },
   {
-    chapter: 'Chương 4: Cạnh tranh và độc quyền',
-    text: 'Theo Lênin, đặc điểm kinh tế của chủ nghĩa tư bản độc quyền là:',
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Chủ trương trong quan hệ quốc tế của Nhà nước ta là:',
     options: [
-      'Xóa bỏ hoàn toàn cạnh tranh.',
-      'Tách rời tư bản ngân hàng và công nghiệp.',
-      'Xuất khẩu tư bản trở thành phổ biến.',
-      'Nhà nước nắm toàn bộ nền kinh tế.'
+      'Việt Nam sẵn sàng là bạn của các nước trong cộng đồng quốc tế.',
+      'Việt Nam muốn là bạn, là đối tác của các nước trong cộng đồng quốc tế.',
+      'Việt Nam sẵn sàng là bạn, tin cậy của các nước trong cộng đồng quốc tế.',
+      'Việt Nam sẵn sàng là bạn, là đối tác tin cậy của các nước trong cộng đồng quốc tế.'
+    ],
+    correctIndex: 3
+  },
+  {
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Mối quan hệ giữa nội lực và ngoại lực trong phát triển kinh tế nước ta là:',
+    options: [
+      'Nội lực là chính.',
+      'Ngoại lực là chính trong thời kỳ đầu để phá vỡ cái vòng luẩn quẩn của sự nghèo đói.',
+      'Nội lực là chính, ngoại lực là rất quan trọng trong thời kỳ đầu.',
+      'Nội lực và ngoại lực đều quan trọng như nhau.'
     ],
     correctIndex: 2
   },
   {
-    chapter: 'Chương 4: Cạnh tranh và độc quyền',
-    text: 'Tư bản tài chính là kết quả hợp nhất giữa:',
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Kinh tế thị trường là:',
     options: [
-      'Tư bản thương nghiệp và ngân hàng.',
-      'Tư bản ngân hàng độc quyền và tư bản công nghiệp độc quyền.',
-      'Nhà nước và doanh nghiệp.',
-      'Quỹ đầu tư và ngân hàng.'
+      'Kiểu tổ chức kinh tế tiến bộ của loài người.',
+      'Sản phẩm riêng có của phương thức sản xuất TBCN.',
+      'Đối lập với nền kinh tế XHCN.',
+      'Thành tựu của nền văn minh nhân loại và không đối lập với CNXH.'
     ],
-    correctIndex: 1
+    correctIndex: 3
   },
   {
-    chapter: 'Chương 4: Cạnh tranh và độc quyền',
-    text: 'Hình thức độc quyền thống nhất cả sản xuất và tiêu thụ dưới một ban quản trị chung là:',
-    options: ['Cartel.', 'Syndicate.', 'Trust.', 'Consortium.'],
-    correctIndex: 2
-  },
-  {
-    chapter: 'Chương 4: Cạnh tranh và độc quyền',
-    text: 'Bản chất của độc quyền nhà nước trong chủ nghĩa tư bản là:',
+    chapter: 'Bộ câu hỏi mới: Kinh tế chính trị Mác – Lênin',
+    text: 'Sự phân chia tư bản thành tư bản bất biến và tư bản khả biến là để vạch ra:',
     options: [
-      'Nhà nước phục vụ lợi ích nhân dân lao động.',
-      'Sự kết hợp sức mạnh của các tổ chức độc quyền tư nhân với sức mạnh nhà nước.',
-      'Nhà nước quốc hữu hóa toàn bộ doanh nghiệp.',
-      'Nhà nước xóa bỏ cạnh tranh.'
+      'Đặc điểm di chuyển giá trị của từng loại tư bản vào sản phẩm.',
+      'Vai trò của lao động quá khứ và lao động sống trong sản xuất tư bản chủ nghĩa.',
+      'Bản chất của quá trình sản xuất giá trị thặng dư.',
+      'Nguồn gốc của giá trị thặng dư.'
     ],
-    correctIndex: 1
-  },
-  {
-    chapter: 'Chương 4: Cạnh tranh và độc quyền',
-    text: 'Tác động tiêu cực của độc quyền làm xói mòn giá trị đạo đức xã hội là:',
-    options: [
-      'Áp đặt giá bán cao.',
-      'Kìm hãm tiến bộ kỹ thuật.',
-      'Chi phối các quan hệ chính trị nhằm phục vụ lợi ích nhóm.',
-      'Tạo cung cầu giả tạo.'
-    ],
-    correctIndex: 2
+    correctIndex: 3
   }
 ];
