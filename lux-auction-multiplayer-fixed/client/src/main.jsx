@@ -286,15 +286,14 @@ function AnswerFeedback({ self }) {
 
 function AuctionPhase({ state, isHost }) {
   const auction = state.auction;
-  const nextPrice = auction.currentPrice + state.rules.bidStep;
   const selfEntity = state.entities.find((entity) => entity.id === state.self?.entityId);
-  const canBid = auction.active && selfEntity && selfEntity.money >= nextPrice;
+  const canBuzz = auction.active && selfEntity && !auction.leaderEntityId;
   const visibleLot = auction.item || state.landLots[auction.roundIndex] || state.landLots.at(-1);
 
   useEffect(() => {
     function handleKeyDown(event) {
       const tag = document.activeElement?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || !canBid) return;
+      if (tag === 'input' || tag === 'textarea' || !canBuzz) return;
       if (event.code === 'Space') {
         event.preventDefault();
         socket.emit('auction:bid');
@@ -302,7 +301,7 @@ function AuctionPhase({ state, isHost }) {
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canBid]);
+  }, [canBuzz]);
 
   return (
     <div className="space-y-6">
@@ -327,26 +326,26 @@ function AuctionPhase({ state, isHost }) {
         <div className="grid gap-3 p-6 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Diện tích" value={visibleLot?.area || '--'} />
           <Stat label="Mục đích sử dụng" value={visibleLot?.purpose || '--'} />
-          <Stat label="Giá khởi điểm" value={money(visibleLot?.reservePrice || 0)} />
-          <Stat label="Giá hiện tại" value={auction.active ? money(auction.currentPrice) : 'Chưa mở vòng'} />
+          <Stat label="Giá khởi điểm tham khảo" value={money(visibleLot?.reservePrice || 0)} />
+          <Stat label="Cách tham gia" value="Bấm Space" />
         </div>
         <p className="px-6 pb-6 text-slate-200/80"><b>Lợi thế:</b> {visibleLot?.advantage}</p>
       </div>
 
       <div className="card p-5">
-        <h3 className="font-display text-2xl font-bold text-amber-200">Trả giá trực tiếp</h3>
-        <p className="mt-2 text-slate-300/80">Mỗi lần bấm sẽ tăng giá thêm {money(state.rules.bidStep)} cho chính nhóm của bạn.</p>
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <Stat label="Nhóm đang dẫn" value={auction.leaderName || '--'} />
-          <Stat label="Giá hiện tại" value={money(auction.currentPrice)} />
-          <Stat label="Lượt tiếp theo" value={money(nextPrice)} />
+        <h3 className="font-display text-2xl font-bold text-amber-200">Bấm Space giành quyền ra giá</h3>
+        <p className="mt-2 text-slate-300/80">Nhóm bấm nhanh nhất chỉ nhận quyền nói mức giá trước. Thao tác này và việc chốt vòng đều không trừ coin.</p>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <Stat label="Nhóm có quyền ra giá" value={auction.leaderName || '--'} />
+          <Stat label="Quỹ nhóm của bạn" value={money(selfEntity?.money || 0)} />
         </div>
         <div className="mt-5 flex flex-wrap gap-3">
           {isHost && !auction.active && auction.roundIndex < state.rules.auctionRounds && <button className="btn-gold" onClick={() => socket.emit('auction:startRound')}>Mở vòng đấu giá</button>}
-          {auction.active && <button className="btn-gold text-lg" disabled={!canBid} onClick={() => socket.emit('auction:bid')}>Trả giá +{money(state.rules.bidStep)}</button>}
+          {auction.active && <button className="btn-gold text-lg" disabled={!canBuzz} onClick={() => socket.emit('auction:bid')}>BẤM SPACE</button>}
+          {isHost && auction.active && auction.leaderEntityId && <button className="btn-navy" onClick={() => socket.emit('auction:resetBuzzer')}>Mở lượt Space tiếp theo</button>}
           {isHost && auction.active && <button className="btn-maroon" onClick={() => socket.emit('auction:closeRound')}>Chốt giá và kết thúc vòng</button>}
         </div>
-        {auction.active && !canBid && <p className="mt-3 text-sm text-red-200">Nhóm của bạn không đủ coin cho lượt giá tiếp theo.</p>}
+        {auction.active && auction.leaderEntityId && <p className="mt-3 text-sm text-amber-100">Đã có nhóm giành quyền. Hãy chờ người tổ chức mở lượt Space mới.</p>}
       </div>
     </div>
   );
@@ -373,7 +372,7 @@ function Results({ state, isHost }) {
             <div key={winner.round} className="rounded-2xl border border-white/10 bg-black/25 p-4">
               <div className="font-display text-xl font-bold text-amber-100">Vòng {winner.round}: {winner.item?.name}</div>
               <div className="text-slate-200">Người thắng: <b>{winner.winnerName}</b></div>
-              {winner.winnerId && <div className="text-slate-300/80">Giá chốt: {money(winner.price)} · Bonus đất: {money(winner.item?.bonus || 0)}</div>}
+              {winner.winnerId && <div className="text-slate-300/80">Không trừ coin · Bonus đất: {money(winner.item?.bonus || 0)}</div>}
             </div>
           ))}
         </div>
@@ -492,7 +491,7 @@ function FlashOverlay({ flash }) {
     <div className="flash-overlay">
       <div className="flash-card">
         <div className="font-display text-5xl font-extrabold text-amber-200">{flash.name}</div>
-        <div className="mt-3 text-2xl font-black text-emerald-200">Đã ghi nhận: {money(flash.price)}</div>
+        <div className="mt-3 text-2xl font-black text-emerald-200">Giành quyền ra giá trước!</div>
       </div>
     </div>
   );

@@ -15,7 +15,6 @@ const QUESTION_COUNT = QUESTION_BANK.length;
 const QUIZ_CORRECT_BONUS = 100;
 const AUCTION_ROUNDS = 5;
 const AUCTION_START_PRICE = 100;
-const BID_STEP = 50;
 const EMPTY_ROOM_RESET_MS = 15_000;
 
 const app = express();
@@ -282,8 +281,7 @@ function getStateFor(socket) {
     rules: {
       questionCount: QUESTION_COUNT,
       auctionRounds: AUCTION_ROUNDS,
-      auctionStartPrice: AUCTION_START_PRICE,
-      bidStep: BID_STEP
+      auctionStartPrice: AUCTION_START_PRICE
     },
     players: getLeaderboard(),
     teams: Object.values(game.teams).map((t) => ({
@@ -370,17 +368,17 @@ function closeAuctionRound(reason = 'host') {
 
   if (leaderId && game.entities[leaderId]) {
     const entity = game.entities[leaderId];
-    entity.money = Math.max(0, entity.money - price);
-    entity.items.push({ ...item, price, round: game.auction.roundIndex });
+    entity.items.push({ ...item, price: 0, referencePrice: price, round: game.auction.roundIndex });
     game.auction.winners.push({
       round: game.auction.roundIndex,
       item,
       winnerId: entity.id,
       winnerName: entity.name,
-      price,
+      price: 0,
+      referencePrice: price,
       reason
     });
-    addNotification(`${entity.name} thắng ${item.name} với giá ${price} coin.`, 'success');
+    addNotification(`${entity.name} thắng ${item.name}. Hệ thống không trừ coin.`, 'success');
   } else {
     game.auction.winners.push({
       round: game.auction.roundIndex,
@@ -589,20 +587,28 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const nextPrice = game.auction.currentPrice + BID_STEP;
-    if (entity.money < nextPrice) {
-      socket.emit('auction:bidRejected', { reason: `${entity.name} không đủ quỹ để trả ${nextPrice} coin.` });
+    if (game.auction.leaderEntityId) {
+      socket.emit('auction:bidRejected', { reason: 'Đã có nhóm giành quyền ra giá. Hãy chờ người tổ chức mở lượt Space tiếp theo.' });
       return;
     }
 
     const now = Date.now();
-    game.auction.currentPrice = nextPrice;
     game.auction.leaderEntityId = entity.id;
     game.auction.leaderName = entity.name;
     game.auction.lastBidAt = now;
-    game.auction.flash = { id: id('flash'), name: entity.name, price: nextPrice, at: now };
+    game.auction.flash = { id: id('flash'), name: entity.name, at: now };
 
-    io.emit('auction:bidAccepted', { name: entity.name, price: nextPrice, at: now });
+    io.emit('auction:bidAccepted', { name: entity.name, at: now });
+    broadcastState();
+  });
+
+  socket.on('auction:resetBuzzer', () => {
+    if (!requireHost(socket)) return;
+    if (game.phase !== 'auction' || !game.auction.active) return;
+    game.auction.leaderEntityId = null;
+    game.auction.leaderName = '--';
+    game.auction.flash = null;
+    addNotification('Người tổ chức đã mở lượt bấm Space tiếp theo.', 'info');
     broadcastState();
   });
 
