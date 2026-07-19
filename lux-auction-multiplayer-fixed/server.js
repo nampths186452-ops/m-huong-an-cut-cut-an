@@ -587,11 +587,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (game.auction.leaderEntityId) {
-      socket.emit('auction:bidRejected', { reason: 'Đã có nhóm giành quyền ra giá trong vòng này.' });
-      return;
-    }
-
     const now = Date.now();
     game.auction.leaderEntityId = entity.id;
     game.auction.leaderName = entity.name;

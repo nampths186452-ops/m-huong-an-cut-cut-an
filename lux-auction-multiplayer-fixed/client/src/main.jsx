@@ -287,7 +287,7 @@ function AnswerFeedback({ self }) {
 function AuctionPhase({ state, isHost }) {
   const auction = state.auction;
   const selfEntity = state.entities.find((entity) => entity.id === state.self?.entityId);
-  const canBuzz = auction.active && selfEntity && !auction.leaderEntityId;
+  const canBuzz = auction.active && selfEntity;
   const visibleLot = auction.item || state.landLots[auction.roundIndex] || state.landLots.at(-1);
 
   useEffect(() => {
@@ -334,9 +334,9 @@ function AuctionPhase({ state, isHost }) {
 
       <div className="card p-5">
         <h3 className="font-display text-2xl font-bold text-amber-200">Bấm Space giành quyền ra giá</h3>
-        <p className="mt-2 text-slate-300/80">Nhóm bấm nhanh nhất chỉ nhận quyền nói mức giá trước. Thao tác này và việc chốt vòng đều không trừ coin.</p>
+        <p className="mt-2 text-slate-300/80">Mọi nhóm có thể bấm Space liên tục. Mỗi lần bấm sẽ cập nhật nhóm vừa giành quyền ra giá; chỉ dừng khi người tổ chức chốt vòng. Hệ thống không trừ coin.</p>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <Stat label="Nhóm có quyền ra giá" value={auction.leaderName || '--'} />
+          <Stat label="Nhóm vừa bấm Space" value={auction.leaderName || '--'} />
           <Stat label="Quỹ nhóm của bạn" value={money(selfEntity?.money || 0)} />
         </div>
         <div className="mt-5 flex flex-wrap gap-3">
@@ -344,7 +344,7 @@ function AuctionPhase({ state, isHost }) {
           {auction.active && <button className="btn-gold text-lg" disabled={!canBuzz} onClick={() => socket.emit('auction:bid')}>BẤM SPACE</button>}
           {isHost && auction.active && <button className="btn-maroon" onClick={() => socket.emit('auction:closeRound')}>Chốt giá và kết thúc vòng</button>}
         </div>
-        {auction.active && auction.leaderEntityId && <p className="mt-3 text-sm text-amber-100">Đã có nhóm giành quyền ra giá trong vòng này.</p>}
+        {auction.active && <p className="mt-3 text-sm text-amber-100">Space vẫn mở cho tất cả nhóm cho đến khi vòng được chốt.</p>}
       </div>
     </div>
   );
