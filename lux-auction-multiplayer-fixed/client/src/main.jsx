@@ -342,10 +342,9 @@ function AuctionPhase({ state, isHost }) {
         <div className="mt-5 flex flex-wrap gap-3">
           {isHost && !auction.active && auction.roundIndex < state.rules.auctionRounds && <button className="btn-gold" onClick={() => socket.emit('auction:startRound')}>Mở vòng đấu giá</button>}
           {auction.active && <button className="btn-gold text-lg" disabled={!canBuzz} onClick={() => socket.emit('auction:bid')}>BẤM SPACE</button>}
-          {isHost && auction.active && auction.leaderEntityId && <button className="btn-navy" onClick={() => socket.emit('auction:resetBuzzer')}>Mở lượt Space tiếp theo</button>}
           {isHost && auction.active && <button className="btn-maroon" onClick={() => socket.emit('auction:closeRound')}>Chốt giá và kết thúc vòng</button>}
         </div>
-        {auction.active && auction.leaderEntityId && <p className="mt-3 text-sm text-amber-100">Đã có nhóm giành quyền. Hãy chờ người tổ chức mở lượt Space mới.</p>}
+        {auction.active && auction.leaderEntityId && <p className="mt-3 text-sm text-amber-100">Đã có nhóm giành quyền ra giá trong vòng này.</p>}
       </div>
     </div>
   );

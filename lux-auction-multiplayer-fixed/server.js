@@ -588,7 +588,7 @@ io.on('connection', (socket) => {
     }
 
     if (game.auction.leaderEntityId) {
-      socket.emit('auction:bidRejected', { reason: 'Đã có nhóm giành quyền ra giá. Hãy chờ người tổ chức mở lượt Space tiếp theo.' });
+      socket.emit('auction:bidRejected', { reason: 'Đã có nhóm giành quyền ra giá trong vòng này.' });
       return;
     }
 
@@ -599,16 +599,6 @@ io.on('connection', (socket) => {
     game.auction.flash = { id: id('flash'), name: entity.name, at: now };
 
     io.emit('auction:bidAccepted', { name: entity.name, at: now });
-    broadcastState();
-  });
-
-  socket.on('auction:resetBuzzer', () => {
-    if (!requireHost(socket)) return;
-    if (game.phase !== 'auction' || !game.auction.active) return;
-    game.auction.leaderEntityId = null;
-    game.auction.leaderName = '--';
-    game.auction.flash = null;
-    addNotification('Người tổ chức đã mở lượt bấm Space tiếp theo.', 'info');
     broadcastState();
   });
 
