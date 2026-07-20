@@ -11,8 +11,8 @@ function money(value = 0) {
 
 function App() {
   const [state, setState] = useState(null);
-  const [joinedName, setJoinedName] = useState(localStorage.getItem('playerName') || '');
   const [joinedGroup, setJoinedGroup] = useState(localStorage.getItem('playerGroupName') || '');
+  const [savedRoomCode, setSavedRoomCode] = useState(localStorage.getItem('roomCode') || '');
   const [toasts, setToasts] = useState([]);
   const [flash, setFlash] = useState(null);
   const [connected, setConnected] = useState(socket.connected);
@@ -20,21 +20,30 @@ function App() {
   useEffect(() => {
     const saveSession = (response) => {
       if (!response?.ok || !response.sessionToken) return;
-      localStorage.setItem('playerSessionToken', response.sessionToken);
-      if (response.name) {
-        localStorage.setItem('playerName', response.name);
-        setJoinedName(response.name);
-      }
+      localStorage.setItem('sessionRole', response.role);
+      localStorage.setItem('roomCode', response.roomCode);
+      setSavedRoomCode(response.roomCode);
+      if (response.role === 'admin') localStorage.setItem('adminSessionToken', response.sessionToken);
+      if (response.role === 'player') localStorage.setItem('playerSessionToken', response.sessionToken);
       if (response.groupName) {
         localStorage.setItem('playerGroupName', response.groupName);
         setJoinedGroup(response.groupName);
       }
     };
     const resumeSession = () => {
-      const sessionToken = localStorage.getItem('playerSessionToken');
-      if (!sessionToken) return;
-      socket.timeout(8000).emit('player:join', { sessionToken }, (error, response) => {
-        if (!error) saveSession(response);
+      const role = localStorage.getItem('sessionRole');
+      const roomCode = localStorage.getItem('roomCode');
+      const eventName = role === 'admin' ? 'admin:resume' : 'player:join';
+      const sessionToken = role === 'admin'
+        ? localStorage.getItem('adminSessionToken')
+        : localStorage.getItem('playerSessionToken');
+      if (!role || !roomCode || !sessionToken) return;
+      socket.timeout(8000).emit(eventName, { roomCode, sessionToken }, (error, response) => {
+        if (!error && response?.ok) saveSession(response);
+        if (!error && response && !response.ok) {
+          clearStoredSession();
+          setState(null);
+        }
       });
     };
     const onConnect = () => {
@@ -53,6 +62,11 @@ function App() {
       setFlash(payload);
       setTimeout(() => setFlash(null), 1050);
     };
+    const onRoomEnded = (payload) => {
+      clearStoredSession();
+      setState(null);
+      pushToast(payload?.text || 'Phòng đã kết thúc.', 'info');
+    };
 
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
@@ -61,6 +75,7 @@ function App() {
     socket.on('notification', onNotification);
     socket.on('auction:bidRejected', onBidRejected);
     socket.on('auction:bidAccepted', onBidAccepted);
+    socket.on('room:ended', onRoomEnded);
     if (socket.connected) resumeSession();
 
     return () => {
@@ -71,8 +86,15 @@ function App() {
       socket.off('notification', onNotification);
       socket.off('auction:bidRejected', onBidRejected);
       socket.off('auction:bidAccepted', onBidAccepted);
+      socket.off('room:ended', onRoomEnded);
     };
   }, []);
+
+  function clearStoredSession() {
+    localStorage.removeItem('sessionRole');
+    localStorage.removeItem('adminSessionToken');
+    localStorage.removeItem('playerSessionToken');
+  }
 
   function pushToast(text, tone = 'info') {
     const id = `${Date.now()}_${Math.random()}`;
@@ -82,7 +104,7 @@ function App() {
     }, 3600);
   }
 
-  const isHost = Boolean(state?.self && state?.hostId === state.self.id);
+  const isAdmin = state?.self?.role === 'admin';
   const joined = Boolean(state?.self);
 
   return (
@@ -91,17 +113,17 @@ function App() {
       <ToastStack toasts={toasts} />
 
       <div className="mx-auto max-w-7xl">
-        <Header state={state} connected={connected} isHost={isHost} joined={joined} />
+        <Header state={state} connected={connected} isAdmin={isAdmin} joined={joined} />
 
         {!joined ? (
-          <JoinScreen joinedName={joinedName} joinedGroup={joinedGroup} setJoinedName={setJoinedName} setJoinedGroup={setJoinedGroup} connected={connected} pushToast={pushToast} />
+          <JoinScreen joinedGroup={joinedGroup} savedRoomCode={savedRoomCode} setJoinedGroup={setJoinedGroup} setSavedRoomCode={setSavedRoomCode} connected={connected} pushToast={pushToast} />
         ) : (
           <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
             <section className="glass rounded-[2rem] p-5 md:p-8">
-              {state?.phase === 'lobby' && <Lobby state={state} isHost={isHost} />}
-              {state?.phase === 'quiz' && <QuizPhase state={state} />}
-              {state?.phase === 'auction' && <AuctionPhase state={state} isHost={isHost} />}
-              {state?.phase === 'result' && <Results state={state} isHost={isHost} />}
+              {state?.phase === 'lobby' && <Lobby state={state} isAdmin={isAdmin} />}
+              {state?.phase === 'quiz' && <QuizPhase state={state} isAdmin={isAdmin} />}
+              {state?.phase === 'auction' && <AuctionPhase state={state} isAdmin={isAdmin} />}
+              {state?.phase === 'result' && <Results state={state} isAdmin={isAdmin} />}
             </section>
             <aside className="space-y-5">
               <Leaderboard state={state} />
@@ -113,7 +135,7 @@ function App() {
   );
 }
 
-function Header({ state, connected, isHost, joined }) {
+function Header({ state, connected, isAdmin, joined }) {
   const phaseLabel = {
     lobby: 'Sảnh chờ',
     quiz: 'Tích lũy coin',
@@ -132,7 +154,18 @@ function Header({ state, connected, isHost, joined }) {
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Badge tone={connected ? 'success' : 'error'}>{connected ? 'Online' : 'Mất kết nối'}</Badge>
         <Badge>{phaseLabel}</Badge>
-        {joined && isHost && <Badge tone="gold">Chủ phòng</Badge>}
+        {joined && <Badge tone="gold">Phòng: {state.roomCode}</Badge>}
+        {joined && isAdmin && <Badge tone="gold">Admin</Badge>}
+        {joined && isAdmin && (
+          <button
+            className="btn-maroon"
+            onClick={() => {
+              if (window.confirm(`Kết thúc phòng ${state.roomCode}? Tất cả người chơi sẽ bị đưa ra ngoài.`)) socket.emit('admin:endRoom');
+            }}
+          >
+            Kết thúc phòng
+          </button>
+        )}
       </div>
     </header>
   );
@@ -148,71 +181,132 @@ function Badge({ children, tone = 'info' }) {
   return <span className={`rounded-full border px-3 py-1 font-bold ${classes[tone] || classes.info}`}>{children}</span>;
 }
 
-function JoinScreen({ joinedName, joinedGroup, setJoinedName, setJoinedGroup, connected, pushToast }) {
-  const [name, setName] = useState(joinedName);
+function JoinScreen({ joinedGroup, savedRoomCode, setJoinedGroup, setSavedRoomCode, connected, pushToast }) {
+  const [mode, setMode] = useState('player');
+  const [roomCode, setRoomCode] = useState(savedRoomCode);
   const [groupName, setGroupName] = useState(joinedGroup);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [joining, setJoining] = useState(false);
 
-  function submit(event) {
-    event.preventDefault();
-    const clean = name.trim();
-    const cleanGroup = groupName.trim();
-    if (!clean || !cleanGroup) {
-      pushToast('Hãy nhập cả tên người chơi và tên nhóm.', 'error');
-      return;
+  function rememberSession(response) {
+    localStorage.setItem('sessionRole', response.role);
+    localStorage.setItem('roomCode', response.roomCode);
+    setSavedRoomCode(response.roomCode);
+    if (response.role === 'admin') localStorage.setItem('adminSessionToken', response.sessionToken);
+    if (response.role === 'player') localStorage.setItem('playerSessionToken', response.sessionToken);
+    if (response.groupName) {
+      localStorage.setItem('playerGroupName', response.groupName);
+      setJoinedGroup(response.groupName);
     }
-    if (!connected) {
-      pushToast('Chưa kết nối được máy chủ. Hãy chờ trạng thái Online rồi thử lại.', 'error');
-      return;
-    }
-    localStorage.setItem('playerName', clean);
-    localStorage.setItem('playerGroupName', cleanGroup);
-    setJoinedName(clean);
-    setJoinedGroup(cleanGroup);
+  }
+
+  function emitWithReply(eventName, payload) {
     setJoining(true);
-    const sessionToken = localStorage.getItem('playerSessionToken');
-    socket.timeout(8000).emit('player:join', { name: clean, groupName: cleanGroup, sessionToken }, (error, response) => {
+    socket.timeout(8000).emit(eventName, payload, (error, response) => {
       setJoining(false);
       if (error) {
         pushToast('Máy chủ không phản hồi. Có thể Render đang khởi động, hãy thử lại sau vài giây.', 'error');
         return;
       }
       if (!response?.ok) {
-        pushToast(response?.error || 'Không thể vào phòng.', 'error');
+        pushToast(response?.error || 'Không thể thực hiện yêu cầu.', 'error');
         return;
       }
-      if (response.sessionToken) localStorage.setItem('playerSessionToken', response.sessionToken);
-      if (response.name) {
-        localStorage.setItem('playerName', response.name);
-        setJoinedName(response.name);
-      }
-      if (response.groupName) {
-        localStorage.setItem('playerGroupName', response.groupName);
-        setJoinedGroup(response.groupName);
-      }
+      rememberSession(response);
+      if (response.role === 'admin') pushToast(`Đã vào phòng ${response.roomCode} với quyền Admin.`, 'success');
     });
   }
 
+  function joinPlayer(event) {
+    event.preventDefault();
+    const cleanCode = roomCode.trim().toUpperCase();
+    const cleanGroup = groupName.trim();
+    if (!cleanCode || !cleanGroup) {
+      pushToast('Hãy nhập mã phòng và tên nhóm.', 'error');
+      return;
+    }
+    if (!connected) {
+      pushToast('Chưa kết nối được máy chủ. Hãy chờ trạng thái Online rồi thử lại.', 'error');
+      return;
+    }
+    emitWithReply('player:join', { roomCode: cleanCode, groupName: cleanGroup });
+  }
+
+  function submitAdmin(event, action) {
+    event.preventDefault();
+    if (!username.trim() || !password) {
+      pushToast('Hãy nhập tài khoản và mật khẩu Admin.', 'error');
+      return;
+    }
+    if (action === 'login' && !roomCode.trim()) {
+      pushToast('Hãy nhập mã phòng để đăng nhập Admin.', 'error');
+      return;
+    }
+    if (!connected) {
+      pushToast('Chưa kết nối được máy chủ. Hãy chờ trạng thái Online rồi thử lại.', 'error');
+      return;
+    }
+    emitWithReply(
+      action === 'create' ? 'admin:create' : 'admin:login',
+      action === 'create'
+        ? { username: username.trim(), password }
+        : { roomCode: roomCode.trim().toUpperCase(), username: username.trim(), password }
+    );
+  }
+
   return (
-    <section className="glass mx-auto max-w-xl rounded-[2rem] p-8 text-center">
+    <section className="glass mx-auto max-w-2xl rounded-[2rem] p-8 text-center">
       <div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full border border-amber-300/40 bg-amber-300/10 text-4xl">🔨</div>
-      <h2 className="font-display text-3xl font-bold text-amber-200">Vào phiên đấu giá đất</h2>
-      <p className="mt-3 text-slate-200/80">Các thành viên nhập cùng một tên nhóm để chơi chung ngay từ đầu.</p>
-      <form onSubmit={submit} className="mt-6 space-y-4">
-        <input className="input-lux text-center" value={name} onChange={(e) => setName(e.target.value)} placeholder="Tên người chơi" maxLength={28} />
-        <input className="input-lux text-center" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Tên nhóm (ví dụ: Nhóm 1)" maxLength={28} />
-        <button className="btn-gold w-full" type="submit" disabled={!connected || joining}>
-          {joining ? 'Đang vào phòng...' : connected ? 'Vào phòng' : 'Đang kết nối máy chủ...'}
-        </button>
-      </form>
+      <h2 className="font-display text-3xl font-bold text-amber-200">Phòng đấu giá đất</h2>
+      <div className="mt-6 grid grid-cols-2 gap-3 rounded-2xl bg-black/25 p-2">
+        <button className={mode === 'player' ? 'btn-gold' : 'btn-navy'} onClick={() => setMode('player')}>Người chơi</button>
+        <button className={mode === 'admin' ? 'btn-gold' : 'btn-navy'} onClick={() => setMode('admin')}>Admin tổ chức</button>
+      </div>
+
+      {mode === 'player' ? (
+        <form onSubmit={joinPlayer} className="mt-6 space-y-4">
+          <p className="text-slate-200/80">Người chơi chỉ cần mã phòng và tên nhóm để tham gia.</p>
+          <input className="input-lux text-center uppercase tracking-[0.25em]" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="MÃ PHÒNG" maxLength={6} />
+          <input className="input-lux text-center" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Tên nhóm (ví dụ: Nhóm 1)" maxLength={28} />
+          <button className="btn-gold w-full" type="submit" disabled={!connected || joining}>
+            {joining ? 'Đang vào phòng...' : connected ? 'Vào phòng với quyền người chơi' : 'Đang kết nối máy chủ...'}
+          </button>
+          <p className="text-sm text-slate-300/70">Người chơi chỉ được trả lời câu hỏi lấy coin và bấm Space trong vòng đấu giá.</p>
+        </form>
+      ) : (
+        <form className="mt-6 space-y-4">
+          <p className="text-slate-200/80">Tạo tài khoản Admin để nhận mã phòng và toàn quyền điều khiển trò chơi.</p>
+          <input className="input-lux text-center" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Tài khoản Admin" maxLength={28} autoComplete="username" />
+          <input className="input-lux text-center" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu Admin" minLength={4} autoComplete="current-password" />
+          <button className="btn-gold w-full" type="button" disabled={!connected || joining} onClick={(event) => submitAdmin(event, 'create')}>
+            {joining ? 'Đang xử lý...' : 'Tạo tài khoản Admin và phòng mới'}
+          </button>
+          <div className="flex items-center gap-3 py-1 text-sm text-slate-400"><span className="h-px flex-1 bg-white/10" />Hoặc đăng nhập lại<span className="h-px flex-1 bg-white/10" /></div>
+          <input className="input-lux text-center uppercase tracking-[0.25em]" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="MÃ PHÒNG ĐÃ TẠO" maxLength={6} />
+          <button className="btn-navy w-full" type="button" disabled={!connected || joining} onClick={(event) => submitAdmin(event, 'login')}>Đăng nhập Admin</button>
+        </form>
+      )}
     </section>
   );
 }
 
-function Lobby({ state, isHost }) {
+function Lobby({ state, isAdmin }) {
   return (
     <div className="space-y-6">
       <SectionTitle eyebrow="Giai đoạn 1" title="Các nhóm tham gia từ đầu" />
+      {isAdmin && (
+        <div className="rounded-3xl border border-amber-300/30 bg-amber-300/10 p-6 text-center">
+          <p className="text-sm font-black uppercase tracking-[0.22em] text-amber-200/70">Mã phòng gửi cho người chơi</p>
+          <div className="font-display mt-2 text-5xl font-black tracking-[0.2em] text-amber-100">{state.roomCode}</div>
+          <button
+            className="btn-navy mt-4"
+            onClick={() => navigator.clipboard?.writeText(state.roomCode)}
+          >
+            Sao chép mã phòng
+          </button>
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         {state.teams.map((team) => {
           const members = team.members.map((id) => state.players.find((player) => player.id === id)).filter(Boolean);
@@ -231,10 +325,10 @@ function Lobby({ state, isHost }) {
         <p className="text-slate-200/80">Số người chơi: <b className="text-amber-200">{state.players.length}/{state.maxPlayers}</b> · Số nhóm: <b className="text-amber-200">{state.teams.length}</b></p>
         <p className="mt-2 text-sm text-slate-300/70">Mỗi thành viên trả lời câu hỏi để góp coin vào quỹ chung của nhóm. Không có bước lập đội sau đó.</p>
         <div className="mt-4 flex flex-wrap gap-3">
-          {isHost ? (
+          {isAdmin ? (
             <button className="btn-gold" onClick={() => socket.emit('game:start')}>Bắt đầu tích lũy coin</button>
           ) : (
-            <button className="btn-navy" onClick={() => socket.emit('host:claim')}>Nhận quyền chủ phòng</button>
+            <p className="font-bold text-amber-100">Đang chờ Admin bắt đầu trò chơi…</p>
           )}
         </div>
       </div>
@@ -242,7 +336,24 @@ function Lobby({ state, isHost }) {
   );
 }
 
-function QuizPhase({ state }) {
+function QuizPhase({ state, isAdmin }) {
+  if (isAdmin) {
+    const completed = state.players.filter((player) => player.quizDone).length;
+    return (
+      <div className="space-y-6">
+        <SectionTitle eyebrow="Bảng điều khiển Admin" title="Theo dõi phần trả lời câu hỏi" />
+        <div className="card p-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Stat label="Đã hoàn thành" value={`${completed}/${state.players.length} nhóm`} />
+            <Stat label="Mã phòng" value={state.roomCode} />
+          </div>
+          <p className="mt-4 text-slate-300/80">Trò chơi tự chuyển sang đấu giá khi các nhóm hoàn thành. Admin có thể chuyển sớm nếu cần.</p>
+          <button className="btn-gold mt-4" onClick={() => socket.emit('game:skipToAuction')}>Chuyển sang đấu giá</button>
+        </div>
+      </div>
+    );
+  }
+
   const self = state.self;
   const question = self?.question;
 
@@ -284,7 +395,7 @@ function AnswerFeedback({ self }) {
   );
 }
 
-function AuctionPhase({ state, isHost }) {
+function AuctionPhase({ state, isAdmin }) {
   const auction = state.auction;
   const selfEntity = state.entities.find((entity) => entity.id === state.self?.entityId);
   const canBuzz = auction.active && selfEntity;
@@ -340,9 +451,9 @@ function AuctionPhase({ state, isHost }) {
           <Stat label="Quỹ nhóm của bạn" value={money(selfEntity?.money || 0)} />
         </div>
         <div className="mt-5 flex flex-wrap gap-3">
-          {isHost && !auction.active && auction.roundIndex < state.rules.auctionRounds && <button className="btn-gold" onClick={() => socket.emit('auction:startRound')}>Mở vòng đấu giá</button>}
-          {auction.active && <button className="btn-gold text-lg" disabled={!canBuzz} onClick={() => socket.emit('auction:bid')}>BẤM SPACE</button>}
-          {isHost && auction.active && <button className="btn-maroon" onClick={() => socket.emit('auction:closeRound')}>Chốt giá và kết thúc vòng</button>}
+          {isAdmin && !auction.active && auction.roundIndex < state.rules.auctionRounds && <button className="btn-gold" onClick={() => socket.emit('auction:startRound')}>Mở vòng đấu giá</button>}
+          {!isAdmin && auction.active && <button className="btn-gold text-lg" disabled={!canBuzz} onClick={() => socket.emit('auction:bid')}>BẤM SPACE</button>}
+          {isAdmin && auction.active && <button className="btn-maroon" onClick={() => socket.emit('auction:closeRound')}>Chốt giá và kết thúc vòng</button>}
         </div>
         {auction.active && <p className="mt-3 text-sm text-amber-100">Space vẫn mở cho tất cả nhóm cho đến khi vòng được chốt.</p>}
       </div>
@@ -350,7 +461,7 @@ function AuctionPhase({ state, isHost }) {
   );
 }
 
-function Results({ state, isHost }) {
+function Results({ state, isAdmin }) {
   const ranking = state.entities.length > 0 ? state.entities : [];
   const winner = ranking[0];
   const landIcons = ['🌊', '🏙️', '🏛️', '🏭', '⛰️'];
@@ -385,14 +496,14 @@ function Results({ state, isHost }) {
             const lot = state.landLots.find((item) => item.id === entry.lotId);
             const lotWinner = state.auction.winners.find((item) => item.item?.id === entry.lotId);
             return (
-              <button key={entry.lotId} className={`land-flip-card ${entry.revealed ? 'is-flipped' : ''}`} onClick={() => socket.emit('result:flipLand', { index })} disabled={entry.revealed} aria-label={entry.revealed ? `Ô đất ${index + 1}: ${entry.reward?.label}` : `Lật ô đất ${index + 1}`}>
+              <button key={entry.lotId} className={`land-flip-card ${entry.revealed ? 'is-flipped' : ''}`} onClick={() => socket.emit('result:flipLand', { index })} disabled={entry.revealed || !isAdmin} aria-label={entry.revealed ? `Ô đất ${index + 1}: ${entry.reward?.label}` : `Lật ô đất ${index + 1}`}>
                 <span className="land-flip-inner">
                   <span className="land-flip-face land-flip-front">
                     <span className="land-card-image">{landIcons[index]}</span>
                     <span className="text-xs font-black uppercase tracking-[0.18em] text-amber-200/70">{lot?.code}</span>
                     <span className="font-display mt-2 text-lg font-bold text-amber-100">{lot?.name}</span>
                     <span className="mt-2 text-xs text-emerald-200">{lotWinner?.winnerId ? `Thuộc về ${lotWinner.winnerName}` : 'Chưa có chủ sở hữu'}</span>
-                    <span className="mt-3 text-sm text-slate-300">Bấm để lật</span>
+                    <span className="mt-3 text-sm text-slate-300">{isAdmin ? 'Bấm để lật' : 'Chờ Admin lật'}</span>
                   </span>
                   <span className={`land-flip-face land-flip-back reward-${entry.reward?.tone || 'hidden'}`}>
                     <span className="text-5xl">{entry.reward?.icon || '❓'}</span>
@@ -407,7 +518,7 @@ function Results({ state, isHost }) {
         </div>
       </div>
 
-      {isHost && <button className="btn-gold" onClick={() => socket.emit('game:reset')}>Mở phiên đấu giá mới</button>}
+      {isAdmin && <button className="btn-gold" onClick={() => socket.emit('game:reset')}>Mở phiên đấu giá mới</button>}
     </div>
   );
 }

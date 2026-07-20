@@ -15,7 +15,6 @@ const QUESTION_COUNT = QUESTION_BANK.length;
 const QUIZ_CORRECT_BONUS = 100;
 const AUCTION_ROUNDS = 5;
 const AUCTION_START_PRICE = 100;
-const EMPTY_ROOM_RESET_MS = 15_000;
 
 const app = express();
 const server = http.createServer(app);
@@ -96,12 +95,13 @@ function shuffled(list) {
   return copy;
 }
 
-let emptyRoomTimer = null;
+const rooms = new Map();
 
-const createInitialGame = () => ({
+const createInitialGame = ({ roomCode, admin }) => ({
+  roomCode,
+  admin,
   phase: 'lobby',
   questionIds: [],
-  hostId: null,
   players: {},
   teams: {},
   entities: {},
@@ -124,8 +124,6 @@ const createInitialGame = () => ({
   }))
 });
 
-let game = createInitialGame();
-
 function id(prefix = 'id') {
   return `${prefix}_${crypto.randomBytes(5).toString('hex')}`;
 }
@@ -134,7 +132,7 @@ function selectQuestionIds() {
   return QUESTION_BANK.map((_, index) => index);
 }
 
-function getQuestion(index) {
+function getQuestion(game, index) {
   return QUESTION_BANK[game.questionIds[index]];
 }
 
@@ -142,7 +140,7 @@ function visibleName(rawName) {
   return String(rawName || '').trim().slice(0, 28);
 }
 
-function findOrCreateGroup(rawGroupName) {
+function findOrCreateGroup(game, rawGroupName) {
   const groupName = visibleName(rawGroupName);
   if (!groupName) return null;
   const existing = Object.values(game.teams)
@@ -154,63 +152,62 @@ function findOrCreateGroup(rawGroupName) {
   return team;
 }
 
-function onlinePlayers() {
+function onlinePlayers(game) {
   return Object.values(game.players).filter((p) => p.online);
 }
 
-function playerForSocket(socket) {
+function gameForSocket(socket) {
+  return rooms.get(socket.data.roomCode) || null;
+}
+
+function playerForSocket(game, socket) {
+  if (!game) return null;
   return game.players[socket.data.playerId] || null;
 }
 
-function playerHasConnection(playerId) {
+function playerHasConnection(game, playerId) {
   return Array.from(io.sockets.sockets.values())
-    .some((connectedSocket) => connectedSocket.data.playerId === playerId);
+    .some((connectedSocket) => connectedSocket.data.roomCode === game.roomCode && connectedSocket.data.playerId === playerId);
 }
 
-function clearEmptyRoomTimer() {
-  if (emptyRoomTimer) {
-    clearTimeout(emptyRoomTimer);
-    emptyRoomTimer = null;
-  }
+function roomChannel(roomCode) {
+  return `room:${roomCode}`;
 }
 
-function scheduleEmptyRoomReset() {
-  clearEmptyRoomTimer();
-  if (onlinePlayers().length > 0) return;
-
-  emptyRoomTimer = setTimeout(() => {
-    emptyRoomTimer = null;
-    if (onlinePlayers().length > 0) return;
-    game = createInitialGame();
-    console.log('Room was empty; game state reset to the lobby.');
-    broadcastState();
-  }, EMPTY_ROOM_RESET_MS);
+function generateRoomCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  do {
+    code = Array.from({ length: 6 }, () => alphabet[crypto.randomInt(alphabet.length)]).join('');
+  } while (rooms.has(code));
+  return code;
 }
 
-function addNotification(text, tone = 'info') {
+function passwordDigest(password, salt) {
+  return crypto.scryptSync(String(password), salt, 32).toString('hex');
+}
+
+function passwordMatches(password, admin) {
+  const supplied = Buffer.from(passwordDigest(password, admin.passwordSalt), 'hex');
+  const expected = Buffer.from(admin.passwordHash, 'hex');
+  return supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+}
+
+function addNotification(game, text, tone = 'info') {
   game.notifications.unshift({ id: id('note'), text, tone, at: Date.now() });
   game.notifications = game.notifications.slice(0, 8);
 }
 
-function ensureHost() {
-  if (game.hostId && game.players[game.hostId]?.online) return;
-  const firstOnline = onlinePlayers()[0];
-  game.hostId = firstOnline?.id || null;
-}
-
-function isHost(socket) {
-  return socket.data.playerId === game.hostId;
-}
-
-function requireHost(socket) {
-  if (!isHost(socket)) {
-    socket.emit('notification', { tone: 'error', text: 'Chỉ chủ phòng mới thực hiện được thao tác này.' });
+function requireAdmin(socket) {
+  const game = gameForSocket(socket);
+  if (!game || socket.data.role !== 'admin' || socket.data.adminId !== game.admin.id) {
+    socket.emit('notification', { tone: 'error', text: 'Chỉ tài khoản Admin của phòng mới thực hiện được thao tác này.' });
     return false;
   }
-  return true;
+  return game;
 }
 
-function publicPlayer(p) {
+function publicPlayer(game, p) {
   return {
     id: p.id,
     name: p.name,
@@ -224,13 +221,13 @@ function publicPlayer(p) {
   };
 }
 
-function getLeaderboard() {
+function getLeaderboard(game) {
   return Object.values(game.players)
-    .map(publicPlayer)
+    .map((player) => publicPlayer(game, player))
     .sort((a, b) => b.money - a.money || a.name.localeCompare(b.name));
 }
 
-function getEntitiesLeaderboard() {
+function getEntitiesLeaderboard(game) {
   const entities = Object.values(game.entities || {});
   if (!entities.length) return [];
   return entities
@@ -246,10 +243,10 @@ function getEntitiesLeaderboard() {
     .sort((a, b) => b.finalScore - a.finalScore || b.money - a.money || a.name.localeCompare(b.name));
 }
 
-function buildSelfState(playerId) {
+function buildSelfState(game, playerId) {
   const p = game.players[playerId];
   if (!p) return null;
-  const currentQuestion = getQuestion(p.quizIndex);
+  const currentQuestion = getQuestion(game, p.quizIndex);
   const question = currentQuestion && !p.quizDone
     ? {
         index: p.quizIndex,
@@ -261,34 +258,36 @@ function buildSelfState(playerId) {
     : null;
 
   return {
-    ...publicPlayer(p),
+    ...publicPlayer(game, p),
+    role: 'player',
     question,
     lastAnswer: p.lastAnswer || null,
-    entityId: getEntityByPlayerId(p.id)?.id || null
+    entityId: getEntityByPlayerId(game, p.id)?.id || null
   };
 }
 
-function getEntityByPlayerId(playerId) {
+function getEntityByPlayerId(game, playerId) {
   return Object.values(game.entities || {}).find((entity) => entity.members.includes(playerId));
 }
 
-function getStateFor(socket) {
-  ensureHost();
+function getStateFor(socket, game) {
+  const isAdmin = socket.data.role === 'admin' && socket.data.adminId === game.admin.id;
   return {
+    roomCode: game.roomCode,
+    adminName: game.admin.username,
     phase: game.phase,
-    hostId: game.hostId,
     maxPlayers: MAX_PLAYERS,
     rules: {
       questionCount: QUESTION_COUNT,
       auctionRounds: AUCTION_ROUNDS,
       auctionStartPrice: AUCTION_START_PRICE
     },
-    players: getLeaderboard(),
+    players: getLeaderboard(game),
     teams: Object.values(game.teams).map((t) => ({
       ...t,
       money: t.members.reduce((sum, playerId) => sum + (game.players[playerId]?.money || 0), 0)
     })),
-    entities: getEntitiesLeaderboard(),
+    entities: getEntitiesLeaderboard(game),
     landLots: AUCTION_ITEMS,
     auction: { ...game.auction },
     notifications: game.notifications,
@@ -297,23 +296,25 @@ function getStateFor(socket) {
       revealed: entry.revealed,
       reward: entry.revealed ? entry.reward : null
     })),
-    self: buildSelfState(socket.data.playerId)
+    self: isAdmin
+      ? { id: game.admin.id, name: game.admin.username, role: 'admin' }
+      : buildSelfState(game, socket.data.playerId)
   };
 }
 
-function broadcastState() {
-  ensureHost();
+function broadcastState(game) {
+  if (!game) return;
   for (const socket of io.sockets.sockets.values()) {
-    socket.emit('state:update', getStateFor(socket));
+    if (socket.data.roomCode === game.roomCode) socket.emit('state:update', getStateFor(socket, game));
   }
 }
 
-function allQuizDone() {
-  const players = onlinePlayers();
+function allQuizDone(game) {
+  const players = onlinePlayers(game);
   return players.length > 0 && players.every((p) => p.quizDone);
 }
 
-function finalizeAuctionParticipants() {
+function finalizeAuctionParticipants(game) {
   const entities = {};
 
   for (const team of Object.values(game.teams)) {
@@ -334,11 +335,12 @@ function finalizeAuctionParticipants() {
 }
 
 function startAuctionRound(socket) {
-  if (socket && !requireHost(socket)) return;
+  const game = requireAdmin(socket);
+  if (!game) return;
   if (game.phase !== 'auction') return;
   if (game.auction.active) return;
   if (game.auction.roundIndex >= AUCTION_ROUNDS) {
-    finishGame();
+    finishGame(game);
     return;
   }
 
@@ -356,11 +358,11 @@ function startAuctionRound(socket) {
     flash: null
   };
 
-  addNotification(`Vòng đấu giá ${nextIndex} đã bắt đầu.`, 'gold');
-  broadcastState();
+  addNotification(game, `Vòng đấu giá ${nextIndex} đã bắt đầu.`, 'gold');
+  broadcastState(game);
 }
 
-function closeAuctionRound(reason = 'host') {
+function closeAuctionRound(game, reason = 'admin') {
   if (game.phase !== 'auction' || !game.auction.active) return;
   const item = game.auction.item;
   const leaderId = game.auction.leaderEntityId;
@@ -378,7 +380,7 @@ function closeAuctionRound(reason = 'host') {
       referencePrice: price,
       reason
     });
-    addNotification(`${entity.name} thắng ${item.name}. Hệ thống không trừ coin.`, 'success');
+    addNotification(game, `${entity.name} thắng ${item.name}. Hệ thống không trừ coin.`, 'success');
   } else {
     game.auction.winners.push({
       round: game.auction.roundIndex,
@@ -388,7 +390,7 @@ function closeAuctionRound(reason = 'host') {
       price: 0,
       reason
     });
-    addNotification(`${item.name} không có người thắng.`, 'info');
+    addNotification(game, `${item.name} không có người thắng.`, 'info');
   }
 
   game.auction.active = false;
@@ -398,52 +400,128 @@ function closeAuctionRound(reason = 'host') {
   game.auction.flash = null;
 
   if (game.auction.roundIndex >= AUCTION_ROUNDS) {
-    finishGame();
+    finishGame(game);
   }
 
-  broadcastState();
+  broadcastState(game);
 }
 
-function finishGame() {
+function finishGame(game) {
   game.phase = 'result';
   game.auction.active = false;
-  addNotification('Trò chơi kết thúc. Bảng xếp hạng cuối đã sẵn sàng.', 'gold');
+  addNotification(game, 'Trò chơi kết thúc. Bảng xếp hạng cuối đã sẵn sàng.', 'gold');
 }
 
 io.on('connection', (socket) => {
-  socket.emit('state:update', getStateFor(socket));
+  function attachToRoom(game, identity) {
+    if (socket.data.roomCode) socket.leave(roomChannel(socket.data.roomCode));
+    socket.data.roomCode = game.roomCode;
+    socket.data.role = identity.role;
+    socket.data.playerId = identity.playerId || null;
+    socket.data.adminId = identity.adminId || null;
+    socket.join(roomChannel(game.roomCode));
+  }
 
-  socket.on('player:join', ({ name, groupName, sessionToken } = {}, acknowledge = () => {}) => {
+  function disconnectDuplicate(identityKey, identityValue, roomCode) {
+    for (const otherSocket of io.sockets.sockets.values()) {
+      if (otherSocket.id !== socket.id && otherSocket.data.roomCode === roomCode && otherSocket.data[identityKey] === identityValue) {
+        otherSocket.disconnect(true);
+      }
+    }
+  }
+
+  socket.on('admin:create', ({ username, password } = {}, acknowledge = () => {}) => {
+    const cleanUsername = visibleName(username);
+    const cleanPassword = String(password || '');
+    if (cleanUsername.length < 3) {
+      acknowledge({ ok: false, error: 'Tên tài khoản Admin cần ít nhất 3 ký tự.' });
+      return;
+    }
+    if (cleanPassword.length < 4) {
+      acknowledge({ ok: false, error: 'Mật khẩu Admin cần ít nhất 4 ký tự.' });
+      return;
+    }
+
+    const roomCode = generateRoomCode();
+    const passwordSalt = crypto.randomBytes(16).toString('hex');
+    const admin = {
+      id: id('admin'),
+      username: cleanUsername,
+      passwordSalt,
+      passwordHash: passwordDigest(cleanPassword, passwordSalt),
+      sessionToken: id('admin_session'),
+      online: true
+    };
+    const game = createInitialGame({ roomCode, admin });
+    rooms.set(roomCode, game);
+    attachToRoom(game, { role: 'admin', adminId: admin.id });
+    addNotification(game, `Phòng ${roomCode} đã được tạo bởi Admin ${admin.username}.`, 'gold');
+    acknowledge({ ok: true, role: 'admin', username: admin.username, roomCode, sessionToken: admin.sessionToken });
+    broadcastState(game);
+  });
+
+  socket.on('admin:login', ({ roomCode, username, password } = {}, acknowledge = () => {}) => {
+    const code = String(roomCode || '').trim().toUpperCase();
+    const game = rooms.get(code);
+    if (!game || game.admin.username.toLowerCase() !== visibleName(username).toLowerCase() || !passwordMatches(password, game.admin)) {
+      acknowledge({ ok: false, error: 'Mã phòng, tài khoản hoặc mật khẩu Admin không đúng.' });
+      return;
+    }
+    game.admin.online = true;
+    game.admin.sessionToken = id('admin_session');
+    attachToRoom(game, { role: 'admin', adminId: game.admin.id });
+    disconnectDuplicate('adminId', game.admin.id, code);
+    acknowledge({ ok: true, role: 'admin', username: game.admin.username, roomCode: code, sessionToken: game.admin.sessionToken });
+    broadcastState(game);
+  });
+
+  socket.on('admin:resume', ({ roomCode, sessionToken } = {}, acknowledge = () => {}) => {
+    const code = String(roomCode || '').trim().toUpperCase();
+    const game = rooms.get(code);
+    if (!game || !sessionToken || sessionToken !== game.admin.sessionToken) {
+      acknowledge({ ok: false, error: 'Phiên Admin đã hết hạn.' });
+      return;
+    }
+    game.admin.online = true;
+    attachToRoom(game, { role: 'admin', adminId: game.admin.id });
+    disconnectDuplicate('adminId', game.admin.id, code);
+    acknowledge({ ok: true, role: 'admin', username: game.admin.username, roomCode: code, sessionToken });
+    broadcastState(game);
+  });
+
+  socket.on('player:join', ({ roomCode, groupName, sessionToken } = {}, acknowledge = () => {}) => {
+    const code = String(roomCode || '').trim().toUpperCase();
+    const game = rooms.get(code);
+    if (!game) {
+      acknowledge({ ok: false, error: 'Mã phòng không tồn tại hoặc phòng đã kết thúc.' });
+      return;
+    }
     const cleanToken = String(sessionToken || '').trim();
     const returningPlayer = cleanToken
       ? Object.values(game.players).find((p) => p.sessionToken === cleanToken)
       : null;
 
     if (returningPlayer) {
-      socket.data.playerId = returningPlayer.id;
+      attachToRoom(game, { role: 'player', playerId: returningPlayer.id });
       returningPlayer.online = true;
-      clearEmptyRoomTimer();
-
-      for (const otherSocket of io.sockets.sockets.values()) {
-        if (otherSocket.id !== socket.id && otherSocket.data.playerId === returningPlayer.id) {
-          otherSocket.disconnect(true);
-        }
-      }
+      disconnectDuplicate('playerId', returningPlayer.id, code);
 
       acknowledge({
         ok: true,
+        role: 'player',
         name: returningPlayer.name,
         groupName: game.teams[returningPlayer.teamId]?.name || '',
+        roomCode: code,
         sessionToken: returningPlayer.sessionToken,
         resumed: true
       });
-      broadcastState();
+      broadcastState(game);
       return;
     }
 
     // Automatic reconnects send only the private token. If the server has
     // restarted and no longer knows it, fail quietly and show the join form.
-    if (!visibleName(name)) {
+    if (cleanToken) {
       acknowledge({ ok: false, error: 'Phiên chơi đã hết hạn.' });
       return;
     }
@@ -453,38 +531,25 @@ io.on('connection', (socket) => {
       acknowledge({ ok: false, error: 'Game đã bắt đầu. Vui lòng chờ ván sau.' });
       return;
     }
-    if (onlinePlayers().length >= MAX_PLAYERS) {
+    if (onlinePlayers(game).length >= MAX_PLAYERS) {
       socket.emit('notification', { tone: 'error', text: 'Phòng đã đủ người chơi.' });
       acknowledge({ ok: false, error: 'Phòng đã đủ người chơi.' });
       return;
     }
 
-    let cleanName = visibleName(name);
-    if (!cleanName) {
-      socket.emit('notification', { tone: 'error', text: 'Vui lòng nhập tên người chơi.' });
-      acknowledge({ ok: false, error: 'Vui lòng nhập tên người chơi.' });
-      return;
-    }
-
-    const group = findOrCreateGroup(groupName);
+    const group = findOrCreateGroup(game, groupName);
     if (!group) {
       socket.emit('notification', { tone: 'error', text: 'Vui lòng nhập tên nhóm ngay từ đầu.' });
       acknowledge({ ok: false, error: 'Vui lòng nhập tên nhóm ngay từ đầu.' });
       return;
     }
 
-    const names = onlinePlayers().map((p) => p.name.toLowerCase());
-    const original = cleanName;
-    let count = 2;
-    while (names.includes(cleanName.toLowerCase())) {
-      cleanName = `${original} ${count}`;
-      count += 1;
-    }
+    const groupMemberNumber = group.members.length + 1;
+    const cleanName = groupMemberNumber === 1 ? group.name : `${group.name} (${groupMemberNumber})`;
 
     const playerId = id('player');
     const newSessionToken = id('session');
-    socket.data.playerId = playerId;
-    clearEmptyRoomTimer();
+    attachToRoom(game, { role: 'player', playerId });
     game.players[playerId] = {
       id: playerId,
       sessionToken: newSessionToken,
@@ -499,27 +564,16 @@ io.on('connection', (socket) => {
     };
     group.members.push(playerId);
 
-    if (!game.hostId) game.hostId = playerId;
-    addNotification(`${cleanName} đã vào phòng.`, 'info');
-    acknowledge({ ok: true, name: cleanName, groupName: group.name, sessionToken: newSessionToken });
-    broadcastState();
-  });
-
-  socket.on('host:claim', () => {
-    const player = playerForSocket(socket);
-    if (!player) {
-      socket.emit('notification', { tone: 'error', text: 'Bạn cần vào phòng trước.' });
-      return;
-    }
-    game.hostId = player.id;
-    addNotification(`${player.name} hiện là chủ phòng.`, 'gold');
-    broadcastState();
+    addNotification(game, `${group.name} đã vào phòng.`, 'info');
+    acknowledge({ ok: true, role: 'player', name: cleanName, groupName: group.name, roomCode: code, sessionToken: newSessionToken });
+    broadcastState(game);
   });
 
   socket.on('game:start', () => {
-    if (!requireHost(socket)) return;
+    const game = requireAdmin(socket);
+    if (!game) return;
     if (game.phase !== 'lobby') return;
-    if (onlinePlayers().length < 1) {
+    if (onlinePlayers(game).length < 1) {
       socket.emit('notification', { tone: 'error', text: 'Cần ít nhất 1 người chơi.' });
       return;
     }
@@ -531,18 +585,19 @@ io.on('connection', (socket) => {
       p.lastAnswer = null;
     }
     game.entities = {};
-    game.auction = createInitialGame().auction;
+    game.auction = createInitialGame({ roomCode: game.roomCode, admin: game.admin }).auction;
     game.questionIds = selectQuestionIds();
     game.phase = 'quiz';
-    addNotification(`Game bắt đầu. Mỗi người chơi trả lời ${QUESTION_COUNT} câu hỏi.`, 'gold');
-    broadcastState();
+    addNotification(game, `Game bắt đầu. Mỗi nhóm trả lời ${QUESTION_COUNT} câu hỏi.`, 'gold');
+    broadcastState(game);
   });
 
   socket.on('quiz:answer', ({ answerIndex, questionIndex } = {}) => {
-    const p = playerForSocket(socket);
+    const game = gameForSocket(socket);
+    const p = socket.data.role === 'player' ? playerForSocket(game, socket) : null;
     if (!p || game.phase !== 'quiz' || p.quizDone) return;
     if (Number(questionIndex) !== p.quizIndex) return;
-    const question = getQuestion(p.quizIndex);
+    const question = getQuestion(game, p.quizIndex);
     if (!question) return;
 
     const correct = Number(answerIndex) === question.correctIndex;
@@ -557,7 +612,7 @@ io.on('connection', (socket) => {
 
     if (p.quizIndex >= QUESTION_COUNT) {
       p.quizDone = true;
-      addNotification(`${p.name} đã hoàn thành phần câu hỏi với ${p.money} coin.`, 'success');
+      addNotification(game, `${p.name} đã hoàn thành phần câu hỏi với ${p.money} coin.`, 'success');
     }
 
     socket.emit('notification', {
@@ -565,23 +620,33 @@ io.on('connection', (socket) => {
       text: correct ? `Đúng! Nhóm của bạn được cộng ${QUIZ_CORRECT_BONUS} coin.` : 'Chưa chính xác. Câu này không được cộng coin.'
     });
 
-    if (allQuizDone()) {
-      finalizeAuctionParticipants();
+    if (allQuizDone(game)) {
+      finalizeAuctionParticipants(game);
       game.phase = 'auction';
-      addNotification('Tất cả nhóm đã hoàn thành phần câu hỏi. Chuyển sang đấu giá đất.', 'gold');
+      addNotification(game, 'Tất cả nhóm đã hoàn thành phần câu hỏi. Chuyển sang đấu giá đất.', 'gold');
     }
 
-    broadcastState();
+    broadcastState(game);
+  });
+
+  socket.on('game:skipToAuction', () => {
+    const game = requireAdmin(socket);
+    if (!game || game.phase !== 'quiz') return;
+    finalizeAuctionParticipants(game);
+    game.phase = 'auction';
+    addNotification(game, 'Admin đã chuyển trò chơi sang phần đấu giá.', 'gold');
+    broadcastState(game);
   });
 
   socket.on('auction:startRound', () => startAuctionRound(socket));
 
   socket.on('auction:bid', () => {
-    const player = playerForSocket(socket);
+    const game = gameForSocket(socket);
+    const player = socket.data.role === 'player' ? playerForSocket(game, socket) : null;
     if (!player) return;
     if (game.phase !== 'auction' || !game.auction.active) return;
 
-    const entity = getEntityByPlayerId(player.id);
+    const entity = getEntityByPlayerId(game, player.id);
     if (!entity) {
       socket.emit('auction:bidRejected', { reason: 'Bạn chưa thuộc nhóm đấu giá.' });
       return;
@@ -593,36 +658,37 @@ io.on('connection', (socket) => {
     game.auction.lastBidAt = now;
     game.auction.flash = { id: id('flash'), name: entity.name, at: now };
 
-    io.emit('auction:bidAccepted', { name: entity.name, at: now });
-    broadcastState();
+    io.to(roomChannel(game.roomCode)).emit('auction:bidAccepted', { name: entity.name, at: now });
+    broadcastState(game);
   });
 
   socket.on('auction:closeRound', () => {
-    if (!requireHost(socket)) return;
-    closeAuctionRound('host');
+    const game = requireAdmin(socket);
+    if (!game) return;
+    closeAuctionRound(game, 'admin');
   });
 
   socket.on('result:flipLand', ({ index } = {}) => {
-    const player = playerForSocket(socket);
-    if (!player || game.phase !== 'result') return;
+    const game = requireAdmin(socket);
+    if (!game || game.phase !== 'result') return;
     const revealIndex = Number(index);
     const entry = game.landReveals[revealIndex];
     if (!entry || entry.revealed) return;
     entry.revealed = true;
-    addNotification(`${player.name} đã lật ô đất số ${revealIndex + 1}: ${entry.reward.label}.`, 'gold');
-    broadcastState();
+    addNotification(game, `Admin đã lật ô đất số ${revealIndex + 1}: ${entry.reward.label}.`, 'gold');
+    broadcastState(game);
   });
 
   socket.on('game:reset', () => {
-    if (!requireHost(socket)) return;
+    const game = requireAdmin(socket);
+    if (!game) return;
     const oldPlayers = Object.values(game.players)
       .filter((p) => p.online)
       .map((p) => ({ id: p.id, name: p.name, sessionToken: p.sessionToken, teamId: p.teamId, online: true }));
     const oldTeams = Object.values(game.teams).map((team) => ({ ...team, members: [...team.members] }));
-    const oldHostId = game.hostId;
-    game = createInitialGame();
+    const resetGame = createInitialGame({ roomCode: game.roomCode, admin: game.admin });
     for (const p of oldPlayers) {
-      game.players[p.id] = {
+      resetGame.players[p.id] = {
         id: p.id,
         name: p.name,
         sessionToken: p.sessionToken,
@@ -636,28 +702,52 @@ io.on('connection', (socket) => {
       };
     }
     for (const team of oldTeams) {
-      const members = team.members.filter((playerId) => game.players[playerId]);
-      if (members.length) game.teams[team.id] = { ...team, members };
+      const members = team.members.filter((playerId) => resetGame.players[playerId]);
+      if (members.length) resetGame.teams[team.id] = { ...team, members };
     }
-    game.hostId = game.players[oldHostId] ? oldHostId : oldPlayers[0]?.id || null;
-    addNotification('Game đã được reset.', 'gold');
-    broadcastState();
+    rooms.set(game.roomCode, resetGame);
+    addNotification(resetGame, 'Admin đã mở một phiên đấu giá mới.', 'gold');
+    broadcastState(resetGame);
+  });
+
+  socket.on('admin:endRoom', () => {
+    const game = requireAdmin(socket);
+    if (!game) return;
+    const channel = roomChannel(game.roomCode);
+    io.to(channel).emit('room:ended', { text: `Phòng ${game.roomCode} đã được Admin kết thúc.` });
+    rooms.delete(game.roomCode);
+    for (const roomSocket of io.sockets.sockets.values()) {
+      if (roomSocket.data.roomCode === game.roomCode) {
+        roomSocket.leave(channel);
+        roomSocket.data.roomCode = null;
+        roomSocket.data.role = null;
+        roomSocket.data.playerId = null;
+        roomSocket.data.adminId = null;
+      }
+    }
   });
 
   socket.on('disconnect', () => {
-    const p = playerForSocket(socket);
+    const game = gameForSocket(socket);
+    if (!game) return;
+    const p = playerForSocket(game, socket);
     if (p) {
-      p.online = playerHasConnection(p.id);
-      if (!p.online) addNotification(`${p.name} đã rời phòng.`, 'info');
+      p.online = playerHasConnection(game, p.id);
+      if (!p.online) addNotification(game, `${p.name} đã rời phòng.`, 'info');
     }
-    ensureHost();
-    broadcastState();
-    scheduleEmptyRoomReset();
+    if (socket.data.role === 'admin') game.admin.online = false;
+    if (game.phase === 'quiz' && allQuizDone(game)) {
+      finalizeAuctionParticipants(game);
+      game.phase = 'auction';
+      addNotification(game, 'Các nhóm đang online đã hoàn thành câu hỏi. Chuyển sang đấu giá đất.', 'gold');
+    }
+    broadcastState(game);
   });
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, phase: game.phase, players: onlinePlayers().length });
+  const players = Array.from(rooms.values()).reduce((total, game) => total + onlinePlayers(game).length, 0);
+  res.json({ ok: true, rooms: rooms.size, players });
 });
 
 const distPath = path.join(__dirname, 'client', 'dist');

@@ -125,8 +125,9 @@ Health check dùng đường dẫn `/api/health`. Không cần tạo database. V
 
 ## Luồng game
 
-1. Người chơi nhập tên cá nhân và tên nhóm ngay khi vào sảnh; những người nhập cùng tên nhóm sẽ chơi chung.
-2. Người tổ chức bắt đầu phần câu hỏi. Mỗi câu đúng cộng 100 coin vào quỹ chung của nhóm, không có hộp quà.
-3. Khi mọi người hoàn thành, game tự chuyển sang 5 vòng đấu giá đất có vị trí, diện tích, mục đích sử dụng, giá khởi điểm và bonus khác nhau.
-4. Người tổ chức mở vòng; mọi nhóm được bấm Space liên tục để giành quyền nói mức giá. Nhóm vừa bấm gần nhất được hiển thị cho đến khi người tổ chức chốt vòng; hệ thống không trừ coin.
-5. Sau vòng thứ 5, màn hình hiện 5 ô đất úp để mọi người lật. Kết quả được xáo ngẫu nhiên gồm: 5 điểm, 1 điểm, hai phần quà và một hình phạt.
+1. Người tổ chức chọn **Admin tổ chức**, tạo tài khoản Admin và nhận mã phòng gồm 6 ký tự. Admin có quyền bắt đầu trò chơi, chuyển sang đấu giá, mở/chốt vòng, lật ô đất, mở phiên mới và kết thúc phòng.
+2. Người chơi nhập mã phòng và tên nhóm để tham gia. Tài khoản người chơi chỉ được trả lời câu hỏi lấy coin và bấm Space giành quyền ra giá; máy chủ từ chối mọi lệnh quản trị từ người chơi.
+3. Admin bắt đầu phần câu hỏi. Mỗi câu đúng cộng 100 coin vào quỹ chung của nhóm, không có hộp quà.
+4. Khi mọi người hoàn thành, game tự chuyển sang 5 vòng đấu giá đất có vị trí, diện tích, mục đích sử dụng, giá khởi điểm và bonus khác nhau.
+5. Admin mở vòng; mọi nhóm được bấm Space liên tục để giành quyền nói mức giá. Nhóm vừa bấm gần nhất được hiển thị cho đến khi Admin chốt vòng; hệ thống không trừ coin.
+6. Sau vòng thứ 5, màn hình hiện 5 ô đất úp. Chỉ Admin có quyền lật; kết quả được xáo ngẫu nhiên gồm: 5 điểm, 1 điểm, hai phần quà và một hình phạt.
