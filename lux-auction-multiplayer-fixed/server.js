@@ -86,6 +86,27 @@ const LAND_REWARDS = [
   { id: 'penalty', label: 'Phạt', icon: '⚠️', tone: 'penalty' }
 ];
 
+const AUCTION_POLICY_CARDS = [
+  {
+    id: 'slow_documents',
+    title: 'Chậm giải quyết hồ sơ',
+    detail: 'Phải bôi trơn để được giải quyết. Nếu cứ để hộp quà, không bôi trơn thì sau mỗi vòng sẽ giảm 10% giá trị.',
+    icon: '⏳'
+  },
+  {
+    id: 'financial_obligation',
+    title: 'Nộp thêm nghĩa vụ tài chính',
+    detail: 'Nộp 10% giá trị đấu giá được. Nếu không đủ tiền hoặc không nộp, mảnh đất sẽ bị thu và đưa ra đấu giá lại.',
+    icon: '💰'
+  },
+  {
+    id: 'complete_documents',
+    title: 'Bổ sung và hoàn thiện hồ sơ',
+    detail: 'Nộp 15% giá trị đấu giá được. Nếu không đủ tiền, mảnh đất bị thu hồi và đưa ra đấu giá lại.',
+    icon: '📋'
+  }
+];
+
 function shuffled(list) {
   const copy = [...list];
   for (let index = copy.length - 1; index > 0; index -= 1) {
@@ -117,6 +138,7 @@ const createInitialGame = ({ roomCode, admin }) => ({
     winners: [],
     flash: null
   },
+  auctionPolicyCards: AUCTION_POLICY_CARDS.map((card) => ({ ...card, revealed: false })),
   landReveals: shuffled(LAND_REWARDS).map((reward, index) => ({
     lotId: AUCTION_ITEMS[index].id,
     reward,
@@ -290,6 +312,13 @@ function getStateFor(socket, game) {
     entities: getEntitiesLeaderboard(game),
     landLots: AUCTION_ITEMS,
     auction: { ...game.auction },
+    auctionPolicyCards: game.auctionPolicyCards.map((card) => ({
+      id: card.id,
+      title: card.title,
+      icon: card.icon,
+      revealed: card.revealed,
+      detail: card.revealed ? card.detail : null
+    })),
     notifications: game.notifications,
     landReveals: game.landReveals.map((entry) => ({
       lotId: entry.lotId,
@@ -346,6 +375,9 @@ function startAuctionRound(socket) {
 
   const nextIndex = game.auction.roundIndex + 1;
   const item = AUCTION_ITEMS[nextIndex - 1];
+  game.auctionPolicyCards.forEach((card) => {
+    card.revealed = false;
+  });
   game.auction = {
     ...game.auction,
     roundIndex: nextIndex,
@@ -666,6 +698,16 @@ io.on('connection', (socket) => {
     const game = requireAdmin(socket);
     if (!game) return;
     closeAuctionRound(game, 'admin');
+  });
+
+  socket.on('auction:flipPolicyCard', ({ cardId } = {}) => {
+    const game = requireAdmin(socket);
+    if (!game || game.phase !== 'auction' || !game.auction.active) return;
+    const card = game.auctionPolicyCards.find((entry) => entry.id === String(cardId || ''));
+    if (!card || card.revealed) return;
+    card.revealed = true;
+    addNotification(game, `Admin đã lật thẻ tình huống: ${card.title}.`, 'gold');
+    broadcastState(game);
   });
 
   socket.on('result:flipLand', ({ index } = {}) => {

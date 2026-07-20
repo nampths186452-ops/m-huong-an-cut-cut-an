@@ -457,6 +457,38 @@ function AuctionPhase({ state, isAdmin }) {
         </div>
         {auction.active && <p className="mt-3 text-sm text-amber-100">Space vẫn mở cho tất cả nhóm cho đến khi vòng được chốt.</p>}
       </div>
+
+      <div className="card p-6">
+        <h3 className="font-display text-center text-3xl font-bold text-amber-200">Thẻ tình huống trong đấu giá</h3>
+        <p className="mt-2 text-center text-slate-300/80">
+          Các thẻ chạy song song với vòng đấu giá. Chỉ Admin được lật; toàn bộ người chơi sẽ nhìn thấy nội dung sau khi lật.
+        </p>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {state.auctionPolicyCards.map((card) => (
+            <button
+              key={card.id}
+              className={`land-flip-card policy-flip-card ${card.revealed ? 'is-flipped' : ''}`}
+              onClick={() => socket.emit('auction:flipPolicyCard', { cardId: card.id })}
+              disabled={!isAdmin || !auction.active || card.revealed}
+              aria-label={card.revealed ? `${card.title}: ${card.detail}` : `Lật thẻ ${card.title}`}
+            >
+              <span className="land-flip-inner policy-flip-inner">
+                <span className="land-flip-face land-flip-front policy-flip-front">
+                  <span className="text-5xl">{card.icon}</span>
+                  <span className="font-display mt-4 text-2xl font-black text-amber-100">{card.title}</span>
+                  <span className="mt-4 text-sm font-bold text-slate-300">{isAdmin ? (auction.active ? 'Bấm để lật thẻ' : 'Mở vòng để sử dụng') : 'Chờ Admin lật thẻ'}</span>
+                </span>
+                <span className="land-flip-face land-flip-back policy-flip-back">
+                  <span className="text-4xl">{card.icon}</span>
+                  <span className="font-display mt-3 text-xl font-black text-amber-100">{card.title}</span>
+                  <span className="mt-3 text-base font-semibold leading-relaxed text-slate-100">{card.detail || 'Nội dung đang được giữ kín'}</span>
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-4 text-center text-sm text-amber-100/75">Các thẻ tự úp lại khi Admin mở vòng đấu giá tiếp theo.</p>
+      </div>
     </div>
   );
 }

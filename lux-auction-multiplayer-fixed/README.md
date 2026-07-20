@@ -130,4 +130,5 @@ Health check dùng đường dẫn `/api/health`. Không cần tạo database. V
 3. Admin bắt đầu phần câu hỏi. Mỗi câu đúng cộng 100 coin vào quỹ chung của nhóm, không có hộp quà.
 4. Khi mọi người hoàn thành, game tự chuyển sang 5 vòng đấu giá đất có vị trí, diện tích, mục đích sử dụng, giá khởi điểm và bonus khác nhau.
 5. Admin mở vòng; mọi nhóm được bấm Space liên tục để giành quyền nói mức giá. Nhóm vừa bấm gần nhất được hiển thị cho đến khi Admin chốt vòng; hệ thống không trừ coin.
-6. Sau vòng thứ 5, màn hình hiện 5 ô đất úp. Chỉ Admin có quyền lật; kết quả được xáo ngẫu nhiên gồm: 5 điểm, 1 điểm, hai phần quà và một hình phạt.
+6. Trong mỗi vòng đấu giá có 3 thẻ tình huống chạy song song: chậm giải quyết hồ sơ, nộp thêm nghĩa vụ tài chính, bổ sung và hoàn thiện hồ sơ. Chỉ Admin được lật thẻ; toàn phòng thấy nội dung xử lý ở mặt sau. Các thẻ tự úp lại khi mở vòng tiếp theo.
+7. Sau vòng thứ 5, màn hình hiện 5 ô đất úp. Chỉ Admin có quyền lật; kết quả được xáo ngẫu nhiên gồm: 5 điểm, 1 điểm, hai phần quà và một hình phạt.

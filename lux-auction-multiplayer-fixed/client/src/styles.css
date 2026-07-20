@@ -198,6 +198,20 @@ button, input, select, textarea {
   background: #172033;
 }
 
+.policy-flip-card,
+.policy-flip-inner {
+  min-height: 300px;
+  height: 300px;
+}
+
+.policy-flip-front {
+  background: linear-gradient(155deg, rgba(30, 64, 175, 0.82), rgba(15, 23, 42, 0.98));
+}
+
+.policy-flip-back {
+  background: linear-gradient(145deg, #7f1d1d, #1e293b);
+}
+
 .flash-overlay {
   pointer-events: none;
   position: fixed;
